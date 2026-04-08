@@ -7,8 +7,309 @@ description: "Production builds, PWA setup, and web deployment"
 
 # Ship It
 
-*Coming soon — this chapter will cover building and deploying Flutter web apps.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+The best-built accessible app is useless if nobody can reach it. This chapter takes wwwBank from your development machine to a real URL — covering the build command, the renderer choice that has major accessibility implications, PWA configuration, and several hosting options. By the end you will have a production build, understand the trade-offs you made, and know how to keep accessibility intact when you deploy.
+
+<WwwBankEmbed route="/" height={480} />
+
+---
+
+## flutter build web — the build command
+
+The core command is straightforward:
+
+```sh
+flutter build web
+```
+
+Flutter compiles your Dart code to JavaScript (or WebAssembly), bundles all assets, and places the output in `build/web/`. That directory is a complete, self-contained web application — everything needed to serve it is in there.
+
+Key flags you will use in practice:
+
+| Flag | Purpose |
+|------|---------|
+| `--web-renderer html` | Use the HTML renderer (native DOM elements) |
+| `--web-renderer canvaskit` | Use the CanvasKit renderer (canvas-based, default) |
+| `--web-renderer auto` | Use HTML on mobile browsers, CanvasKit on desktop |
+| `--release` | Optimised build (default for `build web`) |
+| `--profile` | Profile build for performance analysis |
+| `--dart-define=KEY=VALUE` | Inject compile-time constants |
+| `--base-href /myapp/` | Set the base URL for subdirectory deployment |
+| `--pwa-strategy offline-first` | Configure the PWA service worker caching strategy |
+| `--no-tree-shake-icons` | Disable icon tree-shaking (useful if icons are missing) |
+
+For wwwBank, a production build looks like:
+
+```sh
+flutter build web --web-renderer html --release
+```
+
+---
+
+## CanvasKit vs HTML renderer — the accessibility trade-off
+
+This is the most consequential decision you make when deploying a Flutter web app, and it directly affects accessibility.
+
+**CanvasKit** is Flutter's default web renderer. It bundles a compiled version of the Skia graphics engine (via WebAssembly) and renders everything — text, images, buttons, cards — directly to a single `<canvas>` element. The result is pixel-perfect, visually identical to the native mobile app. CanvasKit also downloads roughly 1.5–2 MB of WebAssembly on first load.
+
+**HTML renderer** generates native HTML elements. Buttons become `<button>` elements, text becomes `<p>` or `<span>` elements, text fields become `<input>` elements. It also injects a `<flt-semantics-placeholder>` tree that assistive technologies can traverse. The bundle is smaller because it doesn't need Skia, but the rendering is handled by the browser, so subtle visual differences can appear across platforms.
+
+The accessibility implications are significant:
+
+| Concern | CanvasKit | HTML renderer |
+|---------|-----------|---------------|
+| Screen reader access | Via semantic overlay only | Native DOM + semantic overlay |
+| Lighthouse accessibility audit | Limited (canvas is opaque to axe-core) | Full analysis |
+| Browser text search (Ctrl+F) | Not available | Works for flt-semantics text |
+| Browser translation | Not available | Works on native text elements |
+| Initial load size | ~2 MB larger (WASM) | Smaller |
+| Visual fidelity | Pixel-perfect, consistent | Browser-dependent rendering |
+| Font rendering | Always Flutter's engine | System fonts, potentially different |
+
+<div className="wb-callout wb-callout--amber">
+
+**CanvasKit does not mean inaccessible.** Flutter injects a `<flt-semantics>` overlay on top of the canvas when a screen reader is detected. This overlay contains the semantic tree your `Semantics` widgets generate, and screen readers use it to navigate. However, the overlay is only injected when Flutter detects an assistive technology — users who are not using a screen reader get no DOM at all. For full accessibility coverage including Lighthouse scores, keyboard navigation discoverability, and browser features, the HTML renderer is the safer default.
+
+</div>
+
+For most accessibility-focused web apps — including wwwBank — the HTML renderer is the right choice. The visual differences are minor and the accessibility wins are significant. Use CanvasKit if you need pixel-perfect consistency with your mobile app or are building a highly graphical experience where browser rendering differences matter.
+
+---
+
+## Tree shaking and build optimisation
+
+Flutter performs two categories of tree shaking at build time:
+
+**Dart code tree shaking:** The Dart compiler removes unused classes, functions, and constants. This happens automatically. wwwBank's `AppColors.inaccessible` palette and all the tutorial infrastructure are only removed if they are genuinely unreachable — if any code path references them, they stay in the bundle. In production, you might want to remove the accessibility toggle and the dual-palette system entirely.
+
+**Icon tree shaking:** Flutter scans your code for `Icons.xxx` references and removes unused icon glyphs from the Material Icons font. This reduces the font file from several MB to a few KB. It runs automatically but can occasionally miss dynamically referenced icons. If icons disappear in a production build, add `--no-tree-shake-icons` as a temporary workaround while you find the dynamic reference.
+
+You can see the build output sizes with:
+
+```sh
+flutter build web --web-renderer html
+# Then inspect:
+du -sh build/web/
+du -sh build/web/assets/
+```
+
+---
+
+## PWA setup — manifest.json and service workers
+
+Flutter generates a Progressive Web App by default. A PWA can be installed on the user's home screen, works offline (with caching), and receives a higher Lighthouse PWA score. wwwBank's `web/manifest.json` is the PWA identity file:
+
+```json title="web/manifest.json"
+{
+    "name": "wwwbank",
+    "short_name": "wwwbank",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "A new Flutter project.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
+```
+
+For a production banking app, update at minimum:
+
+- `name` and `short_name` — these appear in the install prompt and the home screen
+- `description` — shown in app stores and browser install UIs
+- `theme_color` — the browser chrome colour that appears in the tab bar and on Android
+- `background_color` — the splash screen background while the app loads
+- `orientation` — banking apps typically work in any orientation; consider removing this restriction
+
+The **maskable icons** are important: they fill the entire icon canvas, allowing different device shapes (circles, squircles, rounded rectangles) to crop them correctly. Without maskable icons, your icon may have white corners on Android.
+
+Flutter also generates a **service worker** (`flutter_service_worker.js`) and a `flutter.js` bootstrap script automatically. The service worker implements the chosen PWA strategy (`offline-first` by default): it caches all assets on first load and serves them from the cache on subsequent visits, falling back to the network only when the cache is stale. This dramatically improves load time on repeat visits and makes the app functional in poor network conditions.
+
+---
+
+## Hosting options
+
+Once you have `build/web/`, you need somewhere to serve it. Four popular options:
+
+### Firebase Hosting
+
+Firebase Hosting is purpose-built for Flutter web. It handles SPA routing out of the box and integrates with Flutter's build tools.
+
+```sh
+npm install -g firebase-tools
+firebase login
+firebase init hosting
+flutter build web --web-renderer html
+firebase deploy
+```
+
+A minimal `firebase.json` for SPA routing:
+
+```json title="firebase.json"
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": ["firebase.json", "**/.*"],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
+```
+
+The `rewrites` rule is critical: it sends all requests to `index.html`, letting Flutter's client-side router (`go_router`) handle the path. Without this rule, navigating directly to `/dashboard` returns a 404 from the server.
+
+### Vercel
+
+Vercel deploys from a Git repository automatically on every push. Create `vercel.json` in the project root:
+
+```json title="vercel.json"
+{
+  "buildCommand": "flutter build web --web-renderer html",
+  "outputDirectory": "build/web",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+### Netlify
+
+Netlify works similarly. Set the build command to `flutter build web --web-renderer html`, the publish directory to `build/web`, and add a `web/_redirects` file:
+
+```
+/* /index.html 200
+```
+
+### GitHub Pages
+
+GitHub Pages is free but requires a `--base-href` flag if you deploy to a subdirectory (the default for project pages):
+
+```sh
+flutter build web --web-renderer html --base-href /wwwbank/
+```
+
+Without `--base-href`, all asset URLs will be relative to the root path `/`, but GitHub Pages serves your app at `/<reponame>/`, causing all assets to 404.
+
+<div className="wb-callout wb-callout--blue">
+
+**Custom domains and HTTPS are required for PWAs.** The browser will not show the "Install app" prompt over plain `http://` or on a subdomain you do not control. Firebase Hosting, Vercel, and Netlify all provide automatic HTTPS. For GitHub Pages, enable HTTPS in the repository settings.
+
+</div>
+
+---
+
+## Base href considerations
+
+The `--base-href` flag sets the `<base href>` tag in `index.html`. This tells the browser that all relative URLs in the app should be resolved relative to that path. If you deploy to `https://example.com/banking/`, use:
+
+```sh
+flutter build web --base-href /banking/
+```
+
+If you are serving from the root of a domain (the most common case), you do not need this flag — the default `<base href="/">` is correct.
+
+<div className="wb-callout wb-callout--amber">
+
+**Forgetting `--base-href` is one of the most common deployment failures.** Symptoms: the app loads visually but navigation to any non-root route returns a blank screen, or assets fail to load with 404 errors. If your deployment target is anything other than a domain root, always set `--base-href` explicitly.
+
+</div>
+
+---
+
+## Practical exercise — build the app and inspect the output
+
+1. Run `flutter build web --web-renderer html` from the wwwBank project root.
+2. Open `build/web/index.html` in a text editor. Find the `<base href>` tag and the reference to `flutter.js`.
+3. Open `build/web/` in your file manager and inspect the `assets/` directory. Notice the icon files, font files, and the WASM-related files (or lack of them with HTML renderer).
+4. Serve the build locally with `npx serve build/web` and open it in Chrome.
+5. Open DevTools → Application → Manifest. Verify that your manifest has been picked up and the icons are displayed.
+6. Open DevTools → Application → Service Workers. Confirm the service worker is registered and active.
+
+<div className="wb-callout wb-callout--green">
+
+**Compare the renderers:** Run the build twice — once with `--web-renderer html` and once with `--web-renderer canvaskit`. Use `du -sh build/web/` to compare sizes. Open both in Chrome and use DevTools Elements panel to compare the DOM structure. Notice how HTML renderer generates `<flt-semantics>` nodes inline with the DOM, while CanvasKit generates a thinner overlay.
+
+</div>
+
+---
+
+## What's Next
+
+In **Chapter 10: From Mobile to Web**, the bonus chapter, we step back to look at the big picture — how wwwBank relates to the AccessBank mobile tutorial, what changes when you port a Flutter app from mobile to web, and a practical checklist for making the jump.
+
+→ [Chapter 10: From Mobile to Web](/chapters/porting)
+
+---
+
+## Quiz
+
+**1. What is the key accessibility difference between the CanvasKit and HTML renderers, and which would you choose for an app that must pass a Lighthouse accessibility audit?**
+
+<details>
+<summary>Show answer</summary>
+
+CanvasKit renders Flutter's UI to a `<canvas>` element — the visible content is pixels on a canvas, not DOM nodes. Lighthouse's accessibility audits (powered by axe-core) analyse the DOM, so they cannot inspect CanvasKit-rendered content directly. The HTML renderer generates native DOM elements, giving axe-core full access to the structure, labels, and roles. For a Lighthouse accessibility audit, use the HTML renderer (`--web-renderer html`). CanvasKit does inject a `<flt-semantics>` overlay for screen readers, but it is only activated when an assistive technology is detected — Lighthouse running without a screen reader gets no accessible DOM to audit.
+
+</details>
+
+---
+
+**2. Why does a Flutter web app deployed to a subdirectory (e.g., `https://example.com/banking/`) require the `--base-href /banking/` flag?**
+
+<details>
+<summary>Show answer</summary>
+
+Flutter's `index.html` uses a `<base href>` tag to tell the browser how to resolve relative URLs. Without it, the default is `<base href="/">`, which means all asset URLs (`flutter.js`, font files, WASM files) are looked up at `https://example.com/flutter.js` — the root of the domain — rather than at `https://example.com/banking/flutter.js` where they actually live. The `--base-href` flag rewrites the `<base href>` tag to match the deployment path, so assets resolve correctly. Symptoms of a missing `--base-href` include blank screens, 404 errors in the network panel, and the app failing to load any assets.
+
+</details>
+
+---
+
+**3. Why does every Flutter web SPA deployment need a "rewrite all paths to index.html" rule in the server or hosting config?**
+
+<details>
+<summary>Show answer</summary>
+
+Flutter uses client-side routing (via `go_router`). When a user navigates to `https://example.com/transfer`, their browser makes an HTTP request for `/transfer`. The server does not have a file at that path — only `index.html` exists. Without a rewrite rule, the server returns a 404. With the rewrite rule, the server returns `index.html` regardless of the path, the Flutter app boots, and `go_router` reads the URL from `window.location` to render the correct screen. This pattern is required for all single-page applications, not just Flutter.
+
+</details>
+
+---
+
+**4. What PWA icon property ensures your app icon looks correct on Android devices with circular or shaped icon masks?**
+
+<details>
+<summary>Show answer</summary>
+
+The `"purpose": "maskable"` property on an icon entry in `manifest.json`. A maskable icon is designed so that the important content (the logo or symbol) fits within the "safe area" — the inner 80% of the icon canvas. When Android applies a circular or squircle mask, it crops the icon to that shape. Without a maskable icon, a standard icon may have white or transparent corners showing through the mask shape. Flutter's default `web/manifest.json` already includes `Icon-maskable-192.png` and `Icon-maskable-512.png` entries with `"purpose": "maskable"`.
+
+</details>
