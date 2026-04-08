@@ -7,8 +7,303 @@ description: "How Flutter semantics map to ARIA roles in the browser DOM"
 
 # The Semantics Web
 
-*Coming soon — this chapter will cover Flutter semantics and ARIA mapping.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+Flutter renders its UI to a canvas. That's great for visual fidelity — pixels look identical on every platform — but it presents a challenge for accessibility. Screen readers, switch controls, and other assistive technologies don't read pixels. They read a structured description of the UI: what each element *is*, what it *says*, and what *action* it performs.
+
+On native mobile, Flutter builds this description using the platform's native accessibility APIs (UIAccessibility on iOS, AccessibilityNodeInfo on Android). On the web, it exposes the information through the HTML DOM using ARIA attributes. This chapter explains how that works and what you can do to make it work well.
+
+<WwwBankEmbed route="/" height={480} />
+
+---
+
+## What is the semantics tree?
+
+Flutter maintains two trees in parallel:
+
+1. **The widget tree** — your `Column`, `Text`, `Card`, etc. This drives rendering.
+2. **The semantics tree** — a lightweight, platform-agnostic description of what the UI contains. Each node in the semantics tree describes one interactive or meaningful element: its label, its role (button, heading, text field), its state (checked, disabled, focused), and its bounds.
+
+The semantics tree is generated automatically from the widget tree. Flutter's built-in widgets already contribute semantics nodes — `ElevatedButton` adds a button role, `TextField` adds an input role, `Checkbox` adds a checkbox role with a checked state. You don't have to do anything for those.
+
+Where you *do* have to do something is for custom widgets, complex compound elements, decorative elements that should be hidden, and live regions that update dynamically.
+
+---
+
+## Flutter web and ARIA
+
+On the web, Flutter translates the semantics tree into a hidden but real HTML structure overlaid on the canvas. Open Chrome DevTools on your running wwwBank app and look at the Elements panel — you'll find a `<flt-semantics-host>` element containing a parallel DOM tree with ARIA roles and attributes.
+
+For example, a `NavigationRail` produces something like:
+
+```html
+<flt-semantics role="navigation" aria-label="Navigation">
+  <flt-semantics role="tab" aria-selected="true">Dashboard</flt-semantics>
+  <flt-semantics role="tab" aria-selected="false">Transactions</flt-semantics>
+  ...
+</flt-semantics>
+```
+
+Screen readers like VoiceOver and NVDA read this hidden DOM tree, not the canvas pixels. When VoiceOver says "Dashboard, tab, selected, 1 of 4", it's reading that ARIA structure.
+
+<div className="wb-callout wb-callout--blue">
+
+**Inspecting the semantics DOM:** In Chrome DevTools, use Ctrl+F (Cmd+F on Mac) in the Elements panel to search for `flt-semantics`. You'll find the entire semantics tree Flutter is exposing to the browser. This is the ground truth for what screen readers see.
+
+</div>
+
+---
+
+## The Semantics widget
+
+Flutter provides a `Semantics` widget for cases where the automatic semantics are missing, wrong, or incomplete. Wrapping any widget in `Semantics` lets you override or augment its semantics description:
+
+```dart
+Semantics(
+  label: 'Current balance: £1,234.56',
+  child: Text('£1,234.56'),
+),
+```
+
+The most useful `Semantics` properties:
+
+| Property | What it sets | Maps to ARIA |
+|---|---|---|
+| `label` | The accessible name of the element | `aria-label` |
+| `button` | Marks the element as a button | `role="button"` |
+| `header` | Marks the element as a heading | `role="heading"` |
+| `liveRegion` | Announces changes automatically | `aria-live="polite"` |
+| `enabled` / `disabled` | Interactive state | `aria-disabled` |
+| `checked` | Checkbox state | `aria-checked` |
+| `hint` | Additional usage instructions | `aria-describedby` |
+| `value` | Current value (sliders, inputs) | `aria-valuenow` |
+
+The `label` property is the most commonly needed. Whenever a widget conveys meaning through *visual* information only — an icon without text, an image, a colour — you need to provide a text `label` for screen readers.
+
+---
+
+## A practical example — the account balance card
+
+Look at the dashboard's account card in `lib/screens/dashboard/dashboard_screen.dart`:
+
+```dart
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({required this.account});
+  final Account account;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isNegative = account.balance < 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(account.name, style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            Text(
+              '${isNegative ? "-" : ""}£${account.balance.abs().toStringAsFixed(2)}',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: isNegative ? theme.colorScheme.error : null,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+A screen reader user navigating to this card would hear something like: *"minus, pound, 1234 point 56"* — a string that's technically the rendered text but reads very awkwardly. The card also doesn't identify itself as a card, and the account name and balance are separate semantics nodes that the user has to traverse individually.
+
+Here's the accessible version using `Semantics` and `MergeSemantics`:
+
+```dart
+Semantics(
+  label: '${account.name}: ${isNegative ? "overdrawn" : ""}'
+         '£${account.balance.abs().toStringAsFixed(2)}',
+  child: Card(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: ExcludeSemantics(
+        child: Column(
+          // ... same visual content
+        ),
+      ),
+    ),
+  ),
+),
+```
+
+Now the screen reader announces a single, naturally phrased label — "Current Account: £1,234.56" or "Current Account: overdrawn £23.00" — and ignores the individual `Text` nodes inside `ExcludeSemantics`.
+
+---
+
+## MergeSemantics — combining related widgets
+
+`MergeSemantics` is a less invasive alternative to manually writing a `Semantics` label. It merges the semantic descriptions of all its descendant nodes into a single node:
+
+```dart
+MergeSemantics(
+  child: Row(
+    children: [
+      Icon(Icons.receipt_long, semanticLabel: null),
+      const SizedBox(width: 8),
+      Text(txn.merchant),
+      const Spacer(),
+      Text('£${txn.amount.toStringAsFixed(2)}'),
+    ],
+  ),
+),
+```
+
+Without `MergeSemantics`, a screen reader would read "receipt long icon", then "Tesco Express", then "£12.50" — three separate focus stops for what is logically one transaction. With `MergeSemantics`, the user hears "Tesco Express, £12.50" as a single unit, and Tab (or swipe on mobile) moves focus to the next transaction.
+
+<div className="wb-callout wb-callout--amber">
+
+**`MergeSemantics` is shallow by default.** It merges the labels of immediate child semantics nodes, concatenated in tree order. If the concatenated result reads oddly (icon names inserted between meaningful words), use `ExcludeSemantics` on decorative children or write an explicit `Semantics(label: ...)` on the container.
+
+</div>
+
+---
+
+## ExcludeSemantics — hiding decorative elements
+
+Not everything in the UI should be announced. Decorative icons, dividers, background images, and repeated visual-only information should be hidden from the semantics tree. Use `ExcludeSemantics` for this:
+
+```dart
+ExcludeSemantics(
+  child: Icon(Icons.star, color: Colors.amber),
+),
+```
+
+The icon disappears from the semantics tree entirely — the screen reader skips it. This reduces cognitive load for screen reader users who would otherwise have to listen to decorative content that adds nothing.
+
+Common candidates for `ExcludeSemantics`:
+- Decorative icons that accompany labelled text
+- `Divider` and `VerticalDivider` widgets
+- Background imagery
+- Repeated information (e.g., a currency symbol when the amount already includes it in a spoken label)
+
+---
+
+## Live regions — announcing dynamic changes
+
+When content changes without user action — a balance that updates after a transfer, a success banner that appears, a loading indicator that resolves — screen readers won't notice unless you tell them to. That's what `liveRegion` is for:
+
+```dart
+Semantics(
+  liveRegion: true,
+  child: Text(statusMessage),
+),
+```
+
+When `statusMessage` changes (through a `setState` or `ValueListenableBuilder`), the screen reader announces the new text automatically, even if focus is elsewhere. This maps to `aria-live="polite"` in the browser DOM, which means the announcement waits for the user to finish whatever they're currently hearing before interrupting.
+
+Use live regions for:
+- Form validation error messages that appear after the user leaves a field
+- Success/failure banners after form submission
+- Loading status indicators
+- Balance updates after a transfer
+
+---
+
+## The accessible/inaccessible toggle — before and after
+
+wwwBank's `accessible` flag lets you see the before-and-after difference without switching files. Every screen receives `accessible` as a parameter. When `false`, you see the original inaccessible state. When `true`, the `Semantics`, `MergeSemantics`, and `ExcludeSemantics` wrappers are applied.
+
+Try this now: toggle the accessibility icon (the person with arms raised) in the embed's top-right corner. Then open VoiceOver (Cmd+F5 on Mac) or NVDA and navigate the dashboard. The difference is audible.
+
+The pattern you'll use throughout the tutorial looks like this:
+
+```dart
+// Inside a screen widget that receives accessible as a parameter
+Widget _buildAccountCard(Account account) {
+  if (accessible) {
+    return Semantics(
+      label: '${account.name}: £${account.balance.toStringAsFixed(2)}',
+      child: _inaccessibleCard(account),
+    );
+  }
+  return _inaccessibleCard(account);
+}
+```
+
+Later chapters will show you how to remove the `if (accessible)` branches entirely once you've understood what each fix does.
+
+---
+
+## Practical exercise — inspect the dashboard semantics tree
+
+1. Run wwwBank in Chrome (`flutter run -d chrome`).
+2. Open DevTools (F12) and switch to the **Elements** tab.
+3. Press Ctrl+F and search for `flt-semantics`.
+4. Expand the tree and find the navigation element. What ARIA role does Flutter assign to `NavigationRail`?
+5. Find a transaction list item. How many separate semantics nodes does the merchant name and amount occupy? What would screen reader users have to do to hear both?
+6. Toggle accessible mode using the button in the app, and inspect the tree again. What changes?
+
+<div className="wb-callout wb-callout--green">
+
+**Expected findings:** With accessible mode off, the transaction list has separate nodes for merchant, category, and amount — three Tab stops per transaction. With accessible mode on, `MergeSemantics` (or an explicit `Semantics` label) merges them into one. For a list of 20 transactions, that's the difference between 60 Tab stops and 20.
+
+</div>
+
+---
+
+## What's Next
+
+In **Chapter 5: Keyboard Navigation**, we'll make sure every interactive element in wwwBank can be reached and operated with a keyboard alone — the foundation for power-user accessibility and a requirement for WCAG 2.1 Level AA compliance.
+
+→ Chapter 5: Keyboard Navigation *(coming soon)*
+
+---
+
+## Quiz
+
+**1. Why does Flutter web produce a hidden HTML DOM alongside the canvas, and what is it used for?**
+
+<details>
+<summary>Show answer</summary>
+
+Flutter renders visuals to a canvas element, which is opaque to assistive technologies. To support screen readers, Flutter generates a hidden parallel HTML structure using `<flt-semantics>` elements with ARIA roles and attributes. Screen readers read this hidden DOM rather than the canvas, giving them the structured information they need to describe the UI.
+
+</details>
+
+---
+
+**2. What is the difference between `MergeSemantics` and `ExcludeSemantics`?**
+
+<details>
+<summary>Show answer</summary>
+
+`MergeSemantics` combines the semantic descriptions of its descendant nodes into a single semantics node — useful for grouping related elements (like an icon + label + value) so screen readers read them as one unit. `ExcludeSemantics` removes its entire subtree from the semantics tree — useful for hiding decorative elements that add no meaning for screen reader users.
+
+</details>
+
+---
+
+**3. When should you use `liveRegion: true` on a `Semantics` widget?**
+
+<details>
+<summary>Show answer</summary>
+
+When content changes dynamically without user focus — for example, a validation error that appears after the user leaves a field, a success message after form submission, or a status update after a background operation. `liveRegion: true` maps to `aria-live="polite"` and causes the screen reader to announce the new content automatically, even when focus is elsewhere.
+
+</details>
+
+---
+
+**4. A designer adds a decorative star icon next to an account name to indicate "favourite account". How should you handle this for screen reader users?**
+
+<details>
+<summary>Show answer</summary>
+
+Wrap the star icon in `ExcludeSemantics` to hide it from the semantics tree (since it's decorative), and add the "favourite" information to the account card's semantic label: `Semantics(label: '${account.name}, favourite account: £${balance}')`. This way screen reader users get the "favourite" information without hearing an icon name.
+
+</details>
