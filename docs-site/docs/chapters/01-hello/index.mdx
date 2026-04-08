@@ -7,8 +7,260 @@ description: "Build the app shell with NavigationRail and go_router"
 
 # Hello wwwBank
 
-*Coming soon — this chapter will cover building the app shell with NavigationRail and go_router.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+Welcome to wwwBank — the fictional banking app that you'll be making accessible over the course of this tutorial. In this chapter we'll take a guided tour of the codebase, understand the app shell pattern, and see how `NavigationRail` and `go_router` work together to give the app its structure.
+
+<div className="wb-callout wb-callout--blue">
+
+**Before you start:** Make sure you've run through Chapter 0 (Your Web Toolkit) and have Chrome DevTools open. You'll want to inspect the app's DOM as you read.
+
+</div>
+
+---
+
+## Running the app for the first time
+
+Clone the repo (if you haven't already) and run the app in Chrome:
+
+```bash
+git clone https://github.com/your-org/wwwBank.git
+cd wwwBank
+flutter pub get
+flutter run -d chrome
+```
+
+You should see a login screen. Enter any email and password — the demo app accepts any credentials. Once you press **Sign In**, you'll land on the dashboard.
+
+<WwwBankEmbed route="/" height={480} />
+
+Take a moment to click around. Notice:
+
+- Wide screens (≥ 600 px) show a **vertical navigation rail** on the left.
+- Narrow screens switch to a **bottom navigation bar**.
+- The accessibility toggle button (the wheelchair icon) in the top-right corner — we'll use that throughout the tutorial to switch between the "before" and "after" states.
+
+---
+
+## Tour of the `lib/` directory
+
+Open `lib/` in your editor. Here's what you'll find:
+
+```
+lib/
+  main.dart          ← Entry point — just calls runApp()
+  app.dart           ← WwwBankApp widget, wires together router + theme + bridge
+  app_state.dart     ← ChangeNotifier that holds login state and the accessible flag
+  router.dart        ← All go_router configuration
+  theme/             ← Light and dark ThemeData
+  screens/           ← One folder per screen (dashboard, login, transactions, transfer, settings)
+  widgets/           ← Shared widgets — WwwBankScaffold lives here
+  data/              ← Mock data models and sample accounts/transactions
+  tutorial/          ← PostMessage bridge that lets the docs embed control the app
+```
+
+The architecture is intentionally flat. There's no Riverpod, no BLoC, no complex state management — just a single `AppState` `ChangeNotifier` passed down through the widget tree. That keeps the tutorial focused on accessibility, not architecture.
+
+---
+
+## The app shell pattern
+
+Many web apps share the same idea: a persistent outer **shell** (header, navigation) that wraps swappable inner **content**. In wwwBank, the shell is `WwwBankScaffold`.
+
+Open `lib/widgets/wwwbank_scaffold.dart`:
+
+```dart
+class WwwBankScaffold extends StatelessWidget {
+  const WwwBankScaffold({
+    super.key,
+    required this.accessible,
+    required this.currentIndex,
+    required this.onTabChanged,
+    required this.onToggleAccessible,
+    required this.body,
+  });
+
+  final bool accessible;
+  final int currentIndex;
+  final ValueChanged<int> onTabChanged;
+  final VoidCallback onToggleAccessible;
+  final Widget body;
+  ...
+}
+```
+
+`WwwBankScaffold` is a pure display widget — it takes everything it needs as constructor parameters and owns no state of its own. The `body` slot is filled by whichever screen the router is currently showing.
+
+### Responsive switching
+
+The scaffold checks the available width and switches between `NavigationRail` and `NavigationBar` at 600 px:
+
+```dart
+const double _breakpoint = 600;
+
+// Inside build():
+final width = MediaQuery.sizeOf(context).width;
+final isWide = width >= _breakpoint;
+
+body: isWide
+    ? Row(
+        children: [
+          NavigationRail(...),
+          const VerticalDivider(thickness: 1, width: 1),
+          Expanded(child: body),
+        ],
+      )
+    : body,
+bottomNavigationBar: isWide ? null : NavigationBar(...),
+```
+
+When the viewport is wide, `NavigationRail` sits on the left inside a `Row`, and the screen content takes the remaining space. When narrow, `NavigationBar` appears at the bottom and the body fills the full height. We'll dig much deeper into responsive layouts in Chapter 2.
+
+---
+
+## NavigationRail — what it is and when to use it
+
+`NavigationRail` is Flutter's dedicated widget for vertical navigation in desktop and tablet layouts. It maps directly to the ARIA `navigation` landmark and (in the HTML renderer) produces a `<nav>` element in the DOM.
+
+Here's how wwwBank configures it:
+
+```dart
+NavigationRail(
+  selectedIndex: currentIndex,
+  onDestinationSelected: onTabChanged,
+  labelType: NavigationRailLabelType.all,
+  destinations: List.generate(
+    _tabLabels.length,
+    (i) => NavigationRailDestination(
+      icon: Icon(_tabIcons[i]),
+      selectedIcon: Icon(_tabSelectedIcons[i]),
+      label: Text(_tabLabels[i]),
+    ),
+  ),
+),
+```
+
+Key parameters to understand:
+
+| Parameter | What it does |
+|---|---|
+| `selectedIndex` | Which tab is active — driven by the router |
+| `onDestinationSelected` | Callback when the user taps a tab — calls `context.go()` |
+| `labelType: .all` | Always shows text labels, not just on the selected item |
+| `destinations` | The list of tabs with icon, selected icon, and label |
+
+<div className="wb-callout wb-callout--blue">
+
+**NavigationRail vs BottomNavigationBar:** Use `NavigationRail` when the viewport is at least tablet-width and navigation items can be laid out vertically. Use `BottomNavigationBar` (or the newer `NavigationBar`) on small screens where vertical space is precious. Never show both at the same time for the same set of destinations — that confuses keyboard users who might Tab into both.
+
+</div>
+
+---
+
+## go_router — routes, ShellRoute, and the auth guard
+
+The routing is defined entirely in `lib/router.dart`. Let's look at the structure:
+
+```dart
+GoRouter createRouter(AppState appState, {GlobalKey<NavigatorState>? navigatorKey}) {
+  return GoRouter(
+    navigatorKey: navigatorKey,
+    refreshListenable: appState,
+    initialLocation: '/',
+    redirect: (context, state) {
+      final isLoggedIn = appState.isLoggedIn;
+      final isLoginRoute = state.matchedLocation == '/login';
+
+      if (!isLoggedIn && !isLoginRoute) return '/login';
+      if (isLoggedIn && isLoginRoute) return '/';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/login', builder: ...),
+      ShellRoute(
+        builder: (context, state, child) => WwwBankScaffold(..., body: child),
+        routes: [
+          GoRoute(path: '/', builder: ...),
+          GoRoute(path: '/transactions', builder: ...),
+          GoRoute(path: '/transfer', builder: ...),
+          GoRoute(path: '/settings', builder: ...),
+        ],
+      ),
+    ],
+  );
+}
+```
+
+### The auth redirect
+
+`refreshListenable: appState` tells go_router to re-run the `redirect` function whenever `AppState` notifies its listeners — i.e. when the user logs in or out. The redirect logic is simple:
+
+- Not logged in and not on `/login`? → Send to `/login`.
+- Logged in and on `/login`? → Send to `/`.
+- Otherwise → `null` (no redirect, stay where you are).
+
+This means you *cannot* reach the dashboard without logging in, and you *cannot* stay on the login screen once you're authenticated. It's a two-line guard that keeps the app in a consistent state.
+
+### The ShellRoute pattern
+
+`ShellRoute` is the go_router concept that enables the app shell pattern. Instead of each route rendering a full standalone screen, the `ShellRoute`'s `builder` wraps all of its child routes in a persistent outer widget — `WwwBankScaffold` in our case.
+
+The `child` parameter in the `ShellRoute` builder is the currently active child route's widget. So when you navigate to `/transactions`, go_router:
+
+1. Matches `/transactions` to the `GoRoute` under the `ShellRoute`.
+2. Builds `TransactionsScreen(...)` as `child`.
+3. Passes `child` into `WwwBankScaffold(body: child)`.
+4. The scaffold renders with the navigation rail, header, and the transactions screen in the body slot.
+
+The navigation rail never rebuilds — only the `body` slot changes. That's efficient and also good for accessibility because screen reader users aren't thrown back to the top of the page on every navigation.
+
+<div className="wb-callout wb-callout--amber">
+
+**Watch out for focus management.** When a user navigates between routes, the shell pattern keeps the old widgets alive — which means keyboard focus can get left on a widget from the previous screen. Chapter 5 (Keyboard Navigation) covers how to move focus to the new screen's first meaningful element on each route change.
+
+</div>
+
+---
+
+## AppState: the single source of truth
+
+`AppState` in `lib/app_state.dart` is a `ChangeNotifier` that holds two flags:
+
+```dart
+class AppState extends ChangeNotifier {
+  bool _isLoggedIn = false;
+  bool _accessible = false;
+
+  bool get isLoggedIn => _isLoggedIn;
+  bool get accessible => _accessible;
+
+  void login() {
+    _isLoggedIn = true;
+    notifyListeners();
+  }
+
+  void toggleAccessible() {
+    _accessible = !_accessible;
+    notifyListeners();
+  }
+  ...
+}
+```
+
+The `accessible` flag is how the tutorial teaches accessibility improvements without rewriting code. Every screen receives `accessible` as a parameter. When it's `false`, you see the original (inaccessible) UI. When it's `true`, the screen renders with accessibility fixes applied. Toggle the wheelchair button in the header to see the difference.
+
+Throughout the tutorial you'll be adding `if (accessible)` branches — progressively improving each screen. By the final chapter you'll refactor those branches away, leaving only the accessible implementation.
+
+<div className="wb-callout wb-callout--green">
+
+**You now know the whole app.** `main.dart` starts the app. `app.dart` wires up the router and theme. `router.dart` guards routes and shells the navigation. `WwwBankScaffold` renders the persistent navigation. `AppState` holds login state and the accessibility toggle. Everything else is screens.
+
+</div>
+
+---
+
+## What's Next
+
+In **Chapter 2: Think Responsive**, we'll go deeper on `WwwBankScaffold`'s responsive breakpoints, look at `LayoutBuilder` for finer-grained adaptations, and make sure our layout works well for keyboard users at every viewport size.
+
+→ [Chapter 2: Think Responsive](/chapters/responsive)
