@@ -7,8 +7,278 @@ description: "URL routing, deep links, and browser history with go_router"
 
 # Every Page Has an Address
 
-*Coming soon — this chapter will cover URL-based routing and deep links.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+On mobile, your users never see URLs. They tap an icon, swipe between screens, and the address bar doesn't exist. On the web, every page the user visits has a URL — and users have strong expectations about what that means. They expect the back button to work. They expect to be able to bookmark a page and return to it later. They expect to paste a link to the transactions list and have their colleague land exactly there.
+
+This chapter walks through how wwwBank uses `go_router` to meet all of those expectations.
+
+<WwwBankEmbed route="/transactions" height={480} />
+
+Click through the navigation tabs in the embed above. If you're reading this on a wide screen, watch the URL bar in the main browser — you'll see it change as the embed's router pushes navigation events.
+
+---
+
+## Why URLs matter on the web
+
+A Flutter mobile app that doesn't use named routes still works fine — users navigate by tapping, not by typing addresses. But on the web, a Flutter app that ignores URLs is broken in several concrete ways:
+
+- **Refresh breaks navigation.** If the user is on `/transactions` and refreshes, they land on `/` instead. That's surprising and frustrating.
+- **Back button doesn't work.** The browser's back button is one of the most-used UI controls on the web. An app that can't integrate with it feels alien.
+- **Sharing doesn't work.** "Send me that transaction list" isn't actionable if there's no URL to paste.
+- **Bookmarks don't work.** Power users bookmark specific pages. Without URLs, you can't offer this.
+
+`go_router` solves all of these by wiring Flutter's `Navigator` to the browser's History API. Every `context.go('/path')` call updates the browser address bar and pushes a history entry, so the back button works automatically.
+
+---
+
+## go_router basics — GoRoute
+
+The simplest go_router concept is `GoRoute`. Each `GoRoute` maps a path string to a widget:
+
+```dart
+GoRoute(
+  path: '/transactions',
+  builder: (context, state) => TransactionsScreen(
+    accessible: appState.accessible,
+  ),
+),
+```
+
+The `builder` function receives `context` and a `GoRouterState` (which carries path parameters, query parameters, and so on). It returns whatever widget should fill the screen for that path.
+
+In wwwBank, all four main screens are registered this way — `/`, `/transactions`, `/transfer`, and `/settings`.
+
+---
+
+## ShellRoute — the persistent UI shell
+
+The four main screens share a navigation shell: the `WwwBankScaffold` with its app bar and navigation rail or bar. That shell should not disappear and reappear on every navigation; it should persist while only the inner content changes.
+
+That's exactly what `ShellRoute` is for. Open `lib/router.dart`:
+
+```dart
+ShellRoute(
+  builder: (context, state, child) => ListenableBuilder(
+    listenable: appState,
+    builder: (context, _) {
+      final index = _indexFromLocation(state.matchedLocation);
+      return WwwBankScaffold(
+        accessible: appState.accessible,
+        currentIndex: index,
+        onTabChanged: (i) => _navigateToTab(context, i),
+        onToggleAccessible: appState.toggleAccessible,
+        body: child,
+      );
+    },
+  ),
+  routes: [
+    GoRoute(path: '/', builder: ...),
+    GoRoute(path: '/transactions', builder: ...),
+    GoRoute(path: '/transfer', builder: ...),
+    GoRoute(path: '/settings', builder: ...),
+  ],
+),
+```
+
+The `ShellRoute` builder receives a `child` argument — the widget built by whichever nested `GoRoute` matched. The shell wraps it in `WwwBankScaffold` and passes `child` as the `body`. When the user navigates from `/` to `/transactions`, the `WwwBankScaffold` stays alive and only its `body` slot is swapped.
+
+This has an accessibility benefit: the navigation rail and app bar never rebuild, so screen readers don't announce the navigation region again after each route change. Only the new content region is announced.
+
+<div className="wb-callout wb-callout--blue">
+
+**ShellRoute vs nested Navigator:** `ShellRoute` shares the same `Navigator` as the parent, which means the shell widget gets the screen's `BuildContext` and can access inherited widgets (like `Theme` or `MediaQuery`) normally. Nested Navigators create a separate navigator stack, which makes it harder to share context. Prefer `ShellRoute` for app-shell patterns.
+
+</div>
+
+---
+
+## The auth redirect — guarding routes
+
+wwwBank uses go_router's `redirect` parameter to prevent unauthenticated access to any route. Here's the full router setup from `lib/router.dart`:
+
+```dart
+GoRouter createRouter(AppState appState, {GlobalKey<NavigatorState>? navigatorKey}) {
+  return GoRouter(
+    navigatorKey: navigatorKey,
+    refreshListenable: appState,
+    initialLocation: '/',
+    redirect: (context, state) {
+      final isLoggedIn = appState.isLoggedIn;
+      final isLoginRoute = state.matchedLocation == '/login';
+
+      if (!isLoggedIn && !isLoginRoute) return '/login';
+      if (isLoggedIn && isLoginRoute) return '/';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/login', builder: ...),
+      ShellRoute(
+        builder: ...,
+        routes: [/* main routes */],
+      ),
+    ],
+  );
+}
+```
+
+The `redirect` function runs before every navigation. It returns a path string to redirect to, or `null` to allow the navigation to proceed. Two rules cover all the cases:
+
+- **Not logged in and not on `/login`?** Redirect to `/login`. This covers every route, not just `/` — if someone deep-links directly to `/transactions`, they'll be sent to `/login` first.
+- **Logged in and on `/login`?** Redirect to `/`. This prevents the awkward state where an authenticated user is stuck on the login screen.
+
+The `refreshListenable: appState` line is the other half of the puzzle. When `AppState` calls `notifyListeners()` (which happens on login and logout), go_router re-runs the `redirect` function. So the moment the user logs in, go_router notices the `AppState` change, re-evaluates the redirect, and navigates automatically from `/login` to `/`.
+
+---
+
+## Browser back/forward — automatic integration
+
+One of go_router's best features is that you get browser history for free. Every call to `context.go(path)` pushes a new entry to the browser's History API. The back button navigates to the previous entry, and go_router's integration ensures the correct route widget is rendered.
+
+This means you don't need to write any special code to support back navigation between wwwBank's tabs — go_router handles it.
+
+<div className="wb-callout wb-callout--amber">
+
+**`context.go()` vs `context.push()`:** `context.go('/path')` *replaces* the current history entry (like clicking a tab). `context.push('/path')` *adds* a new entry (like opening a detail page). For tab navigation, always use `context.go()` — otherwise the user accumulates tab history and the back button cycles through tabs instead of going back to the previous app.
+
+</div>
+
+---
+
+## _indexFromLocation and _navigateToTab
+
+The scaffold needs to know which tab index is active so it can highlight the correct nav item. But go_router doesn't deal in tab indices — it deals in paths. Two small helper functions bridge the gap at the bottom of `lib/router.dart`:
+
+```dart
+int _indexFromLocation(String location) {
+  return switch (location) {
+    '/' => 0,
+    '/transactions' => 1,
+    '/transfer' => 2,
+    '/settings' => 3,
+    _ => 0,
+  };
+}
+
+void _navigateToTab(BuildContext context, int index) {
+  final path = switch (index) {
+    0 => '/',
+    1 => '/transactions',
+    2 => '/transfer',
+    3 => '/settings',
+    _ => '/',
+  };
+  context.go(path);
+}
+```
+
+`_indexFromLocation` converts the current URL path into a tab index for `WwwBankScaffold.currentIndex`. It's called inside the `ShellRoute` builder using `state.matchedLocation`.
+
+`_navigateToTab` converts a tab index back into a path and calls `context.go(path)`. It's passed as `onTabChanged` to `WwwBankScaffold`.
+
+These two functions are the only place where the mapping between indices and paths is defined. If you add a new tab, you change it here.
+
+---
+
+## Deep linking — navigating directly to any route
+
+Because every screen has a real URL, deep linking works automatically. You can navigate directly to any route by typing or pasting its URL:
+
+```
+http://localhost:3000/#/transactions
+http://localhost:3000/#/settings
+http://localhost:3000/#/transfer
+```
+
+If you're not logged in, the auth redirect kicks in and sends you to `/login` first. After login, go_router doesn't automatically send you back to your intended destination in this basic implementation — that's a more advanced pattern involving the `extra` parameter or query strings to carry the intended route through the login flow.
+
+<div className="wb-callout wb-callout--blue">
+
+**Flutter web uses hash-based routing by default** (`/#/transactions`). You can switch to path-based routing (`/transactions`) by using a custom `UrlStrategy`, but that requires server-side configuration to serve `index.html` for all paths. Hash routing works everywhere without server changes, so it's the default.
+
+</div>
+
+---
+
+## The PostMessage bridge — how the embedded app responds to route commands
+
+You may have noticed that clicking the WwwBankEmbed in these docs actually navigates the embedded Flutter app. That works through a `postMessage` bridge defined in `lib/tutorial/postmessage_bridge.dart`.
+
+The embed's host page can send messages into the iframe:
+
+```dart
+void _handleMessage(String type, Map<String, dynamic> payload) {
+  switch (type) {
+    case 'navigate':
+      final route = payload['route'] as String?;
+      if (route != null && _navigatorKey.currentContext != null) {
+        GoRouter.of(_navigatorKey.currentContext!).go(route);
+      }
+    case 'setAccessible':
+      final accessible = payload['accessible'] as bool?;
+      if (accessible != null) {
+        _appState.setAccessible(accessible);
+      }
+    case 'toggleAccessible':
+      _appState.toggleAccessible();
+  }
+}
+```
+
+When the docs page sends a `navigate` message with a route like `/transactions`, the bridge calls `GoRouter.of(context).go('/transactions')` — the same `context.go()` call you'd make from a button press. The router doesn't know or care that the navigation was triggered by a `postMessage`; it just works.
+
+This is a great example of why having a real router matters: because routing is centralised in go_router, any code with access to the `BuildContext` (or a `NavigatorKey`) can trigger navigation — including code that bridges external systems.
+
+---
+
+## What's Next
+
+In **Chapter 4: The Semantics Web**, we'll explore how Flutter's semantics tree maps to ARIA roles in the browser DOM — the foundation of screen reader support.
+
+→ [Chapter 4: The Semantics Web](/chapters/semantics)
+
+---
+
+## Quiz
+
+**1. What does `refreshListenable: appState` do in the GoRouter configuration?**
+
+<details>
+<summary>Show answer</summary>
+
+It tells go_router to re-run the `redirect` function whenever `appState` notifies its listeners (via `notifyListeners()`). This means when the user logs in or out, the router automatically evaluates whether a redirect is needed — without any manual navigation call.
+
+</details>
+
+---
+
+**2. A user is not logged in and tries to visit `/settings` directly. What happens?**
+
+<details>
+<summary>Show answer</summary>
+
+The `redirect` function runs before the navigation completes. It sees `!isLoggedIn && !isLoginRoute` is `true` (because `/settings` is not `/login`), so it returns `'/login'`. go_router redirects the user to the login screen instead of showing `/settings`.
+
+</details>
+
+---
+
+**3. What is the difference between `context.go('/path')` and `context.push('/path')`, and which should be used for tab navigation?**
+
+<details>
+<summary>Show answer</summary>
+
+`context.go()` replaces the current history entry; `context.push()` adds a new one. Tab navigation should always use `context.go()`. If you used `context.push()`, tapping between tabs would build up a history stack, so pressing the browser back button would cycle through tabs rather than navigating backwards in the app.
+
+</details>
+
+---
+
+**4. What role does `ShellRoute` play, and how does it benefit screen reader users?**
+
+<details>
+<summary>Show answer</summary>
+
+`ShellRoute` wraps a set of child routes in a persistent outer widget (the `WwwBankScaffold`). Because the shell never unmounts on navigation, screen readers don't announce the navigation region again when the user switches tabs — only the new content area changes. This creates a calmer, less repetitive screen reader experience compared to rebuilding the entire page on every route change.
+
+</details>
