@@ -129,7 +129,7 @@ class SettingsScreen extends StatelessWidget {
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.info_outline),
-                  title: const Text('About wwwBank'),
+                  title: const Text('About WebBank'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {},
                 ),

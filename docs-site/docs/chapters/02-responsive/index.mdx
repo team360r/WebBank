@@ -7,11 +7,11 @@ description: "Build responsive layouts with LayoutBuilder and adaptive navigatio
 
 # Think Responsive
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
-Responsive design isn't just a nice-to-have on the web — it's a baseline expectation. Your users might open wwwBank on a laptop, a widescreen monitor, a tablet, or a phone browser. On mobile apps you usually control the screen size; on the web you don't. This chapter digs deep into how wwwBank adapts its layout to any viewport, and teaches you the Flutter patterns to replicate that in your own apps.
+Responsive design isn't just a nice-to-have on the web — it's a baseline expectation. Your users might open WebBank on a laptop, a widescreen monitor, a tablet, or a phone browser. On mobile apps you usually control the screen size; on the web you don't. This chapter digs deep into how WebBank adapts its layout to any viewport, and teaches you the Flutter patterns to replicate that in your own apps.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 Try resizing the embed above (or your browser window if you're reading this on a wide screen). Notice the navigation snapping between the side rail and the bottom bar — that's a single breakpoint driving the whole layout.
 
@@ -27,11 +27,11 @@ The Flutter team designed several tools specifically for this: `LayoutBuilder`, 
 
 ## The 600 px breakpoint
 
-wwwBank makes a single, decisive choice: **600 px is the boundary between "narrow" and "wide"**. Below 600 px, the app looks and feels like a mobile app. At 600 px and above, it gains the side navigation rail typical of a desktop dashboard.
+WebBank makes a single, decisive choice: **600 px is the boundary between "narrow" and "wide"**. Below 600 px, the app looks and feels like a mobile app. At 600 px and above, it gains the side navigation rail typical of a desktop dashboard.
 
 This number comes from Material Design's layout guidelines: 600 dp is where the system considers a screen "medium" (tablet territory). Using a single well-reasoned breakpoint is usually better than having five different breakpoints — it keeps the codebase simple and predictable.
 
-Open `lib/widgets/wwwbank_scaffold.dart` and you'll find the constant right at the top:
+Open `lib/widgets/webbank_scaffold.dart` and you'll find the constant right at the top:
 
 ```dart
 const double _breakpoint = 600;
@@ -64,7 +64,7 @@ Widget build(BuildContext context) {
 
 ## LayoutBuilder vs MediaQuery — which to use?
 
-You'll see both used in wwwBank. Here's the key distinction:
+You'll see both used in WebBank. Here's the key distinction:
 
 - **`MediaQuery.sizeOf`** gives you the *window* size. Use it when the layout decision is tied to the full viewport — like switching between side nav and bottom nav.
 - **`LayoutBuilder`** gives you the *available space* of the parent widget. Use it when the layout decision is tied to the space actually given to a particular widget — like a card grid inside a panel that might itself be constrained.
@@ -75,12 +75,12 @@ The scaffold uses `MediaQuery.sizeOf` for the navigation switch because that dec
 
 ## The adaptive scaffold layout
 
-Here's the full responsive body logic from `WwwBankScaffold`:
+Here's the full responsive body logic from `WebBankScaffold`:
 
 ```dart
 return Scaffold(
   appBar: AppBar(
-    title: const Text('wwwBank'),
+    title: const Text('WebBank'),
     actions: [
       IconButton(
         icon: Icon(
@@ -228,7 +228,7 @@ The fastest way to test responsive layouts is Chrome DevTools' device toolbar:
 3. Press **Ctrl+Shift+M** (or click the phone/tablet icon in the toolbar) to toggle Device Mode.
 4. Drag the viewport edge to resize, or type a width directly in the dimension field at the top.
 
-Test these specific widths for wwwBank:
+Test these specific widths for WebBank:
 
 | Width | Expected layout |
 |---|---|

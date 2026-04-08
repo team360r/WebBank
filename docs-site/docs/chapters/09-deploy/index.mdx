@@ -7,11 +7,11 @@ description: "Production builds, PWA setup, and web deployment"
 
 # Ship It
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
-The best-built accessible app is useless if nobody can reach it. This chapter takes wwwBank from your development machine to a real URL — covering the build command, the renderer choice that has major accessibility implications, PWA configuration, and several hosting options. By the end you will have a production build, understand the trade-offs you made, and know how to keep accessibility intact when you deploy.
+The best-built accessible app is useless if nobody can reach it. This chapter takes WebBank from your development machine to a real URL — covering the build command, the renderer choice that has major accessibility implications, PWA configuration, and several hosting options. By the end you will have a production build, understand the trade-offs you made, and know how to keep accessibility intact when you deploy.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 ---
 
@@ -39,7 +39,7 @@ Key flags you will use in practice:
 | `--pwa-strategy offline-first` | Configure the PWA service worker caching strategy |
 | `--no-tree-shake-icons` | Disable icon tree-shaking (useful if icons are missing) |
 
-For wwwBank, a production build looks like:
+For WebBank, a production build looks like:
 
 ```sh
 flutter build web --web-renderer html --release
@@ -73,7 +73,7 @@ The accessibility implications are significant:
 
 </div>
 
-For most accessibility-focused web apps — including wwwBank — the HTML renderer is the right choice. The visual differences are minor and the accessibility wins are significant. Use CanvasKit if you need pixel-perfect consistency with your mobile app or are building a highly graphical experience where browser rendering differences matter.
+For most accessibility-focused web apps — including WebBank — the HTML renderer is the right choice. The visual differences are minor and the accessibility wins are significant. Use CanvasKit if you need pixel-perfect consistency with your mobile app or are building a highly graphical experience where browser rendering differences matter.
 
 ---
 
@@ -81,7 +81,7 @@ For most accessibility-focused web apps — including wwwBank — the HTML rende
 
 Flutter performs two categories of tree shaking at build time:
 
-**Dart code tree shaking:** The Dart compiler removes unused classes, functions, and constants. This happens automatically. wwwBank's `AppColors.inaccessible` palette and all the tutorial infrastructure are only removed if they are genuinely unreachable — if any code path references them, they stay in the bundle. In production, you might want to remove the accessibility toggle and the dual-palette system entirely.
+**Dart code tree shaking:** The Dart compiler removes unused classes, functions, and constants. This happens automatically. WebBank's `AppColors.inaccessible` palette and all the tutorial infrastructure are only removed if they are genuinely unreachable — if any code path references them, they stay in the bundle. In production, you might want to remove the accessibility toggle and the dual-palette system entirely.
 
 **Icon tree shaking:** Flutter scans your code for `Icons.xxx` references and removes unused icon glyphs from the Material Icons font. This reduces the font file from several MB to a few KB. It runs automatically but can occasionally miss dynamically referenced icons. If icons disappear in a production build, add `--no-tree-shake-icons` as a temporary workaround while you find the dynamic reference.
 
@@ -98,12 +98,12 @@ du -sh build/web/assets/
 
 ## PWA setup — manifest.json and service workers
 
-Flutter generates a Progressive Web App by default. A PWA can be installed on the user's home screen, works offline (with caching), and receives a higher Lighthouse PWA score. wwwBank's `web/manifest.json` is the PWA identity file:
+Flutter generates a Progressive Web App by default. A PWA can be installed on the user's home screen, works offline (with caching), and receives a higher Lighthouse PWA score. WebBank's `web/manifest.json` is the PWA identity file:
 
 ```json title="web/manifest.json"
 {
-    "name": "wwwbank",
-    "short_name": "wwwbank",
+    "name": "webbank",
+    "short_name": "webbank",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
@@ -214,7 +214,7 @@ Netlify works similarly. Set the build command to `flutter build web --web-rende
 GitHub Pages is free but requires a `--base-href` flag if you deploy to a subdirectory (the default for project pages):
 
 ```sh
-flutter build web --web-renderer html --base-href /wwwbank/
+flutter build web --web-renderer html --base-href /webbank/
 ```
 
 Without `--base-href`, all asset URLs will be relative to the root path `/`, but GitHub Pages serves your app at `/<reponame>/`, causing all assets to 404.
@@ -247,7 +247,7 @@ If you are serving from the root of a domain (the most common case), you do not 
 
 ## Practical exercise — build the app and inspect the output
 
-1. Run `flutter build web --web-renderer html` from the wwwBank project root.
+1. Run `flutter build web --web-renderer html` from the WebBank project root.
 2. Open `build/web/index.html` in a text editor. Find the `<base href>` tag and the reference to `flutter.js`.
 3. Open `build/web/` in your file manager and inspect the `assets/` directory. Notice the icon files, font files, and the WASM-related files (or lack of them with HTML renderer).
 4. Serve the build locally with `npx serve build/web` and open it in Chrome.
@@ -264,7 +264,7 @@ If you are serving from the root of a domain (the most common case), you do not 
 
 ## What's Next
 
-In **Chapter 10: From Mobile to Web**, the bonus chapter, we step back to look at the big picture — how wwwBank relates to the AccessBank mobile tutorial, what changes when you port a Flutter app from mobile to web, and a practical checklist for making the jump.
+In **Chapter 10: From Mobile to Web**, the bonus chapter, we step back to look at the big picture — how WebBank relates to the AccessBank mobile tutorial, what changes when you port a Flutter app from mobile to web, and a practical checklist for making the jump.
 
 → [Chapter 10: From Mobile to Web](/chapters/porting)
 

@@ -7,13 +7,13 @@ description: "Adapting a Flutter mobile app for the web platform"
 
 # From Mobile to Web
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
-This bonus chapter bridges the two tutorials in this series: [AccessBank](https://accessible.example.com) (the Flutter mobile accessibility tutorial) and wwwBank (this one). If you built AccessBank on mobile and now want to understand how wwwBank was derived from it — or if you are porting your own Flutter mobile app to the web — this chapter is for you.
+This bonus chapter bridges the two tutorials in this series: [AccessBank](https://accessible.example.com) (the Flutter mobile accessibility tutorial) and WebBank (this one). If you built AccessBank on mobile and now want to understand how WebBank was derived from it — or if you are porting your own Flutter mobile app to the web — this chapter is for you.
 
 The short version: the business logic and data layer copied across without changes. The UI needed a new navigation pattern, new layout thinking, and several web-specific APIs. The accessibility work was mostly already done — which is exactly the point.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 ---
 
@@ -21,7 +21,7 @@ The short version: the business logic and data layer copied across without chang
 
 The first decision when taking a Flutter mobile app to the web is not technical — it is strategic. There are two broad approaches:
 
-**Adapt:** Keep the same Dart codebase, share as much code as possible, add web-specific code where necessary. This is what wwwBank does — it is the same app, shared models and state, different navigation shell and layout.
+**Adapt:** Keep the same Dart codebase, share as much code as possible, add web-specific code where necessary. This is what WebBank does — it is the same app, shared models and state, different navigation shell and layout.
 
 **Rebuild:** Start fresh for the web, designed for web interaction patterns from the ground up. This makes sense when the mobile and web experiences are genuinely different products — different audiences, different features, different information architecture.
 
@@ -36,7 +36,7 @@ A useful decision framework:
 | Web-specific features needed (browser URLs, SEO, etc.)? | Some | Many |
 | Team size and velocity? | Small | Larger |
 
-For wwwBank, the answer was clearly "adapt": same features, same users, same data, just a different shell. The mobile app's `DashboardScreen`, `TransactionsScreen`, `TransferScreen`, and `SettingsScreen` all work on web with zero changes. The only things that changed were navigation, layout breakpoints, routing, and a handful of web-specific integrations.
+For WebBank, the answer was clearly "adapt": same features, same users, same data, just a different shell. The mobile app's `DashboardScreen`, `TransactionsScreen`, `TransferScreen`, and `SettingsScreen` all work on web with zero changes. The only things that changed were navigation, layout breakpoints, routing, and a handful of web-specific integrations.
 
 ---
 
@@ -54,7 +54,7 @@ if (kIsWeb) {
 }
 ```
 
-wwwBank uses `kIsWeb` in `PostMessageBridge` to conditionally register the window message listener:
+WebBank uses `kIsWeb` in `PostMessageBridge` to conditionally register the window message listener:
 
 ```dart title="lib/tutorial/postmessage_bridge.dart"
 PostMessageBridge(this._appState, this._navigatorKey) {
@@ -76,9 +76,9 @@ On mobile, this constructor body is a no-op. On web, it registers the listener t
 
 ## Platform-adaptive navigation — NavigationRail vs BottomNavigationBar
 
-The clearest example of platform adaptation in wwwBank is the navigation shell. The mobile AccessBank app uses `BottomNavigationBar` — a horizontal strip of tabs at the bottom of the screen, optimised for thumb reach on phones. wwwBank's `WwwBankScaffold` uses the same component on narrow screens, but switches to `NavigationRail` on wider screens:
+The clearest example of platform adaptation in WebBank is the navigation shell. The mobile AccessBank app uses `BottomNavigationBar` — a horizontal strip of tabs at the bottom of the screen, optimised for thumb reach on phones. WebBank's `WebBankScaffold` uses the same component on narrow screens, but switches to `NavigationRail` on wider screens:
 
-```dart title="lib/widgets/wwwbank_scaffold.dart"
+```dart title="lib/widgets/webbank_scaffold.dart"
 const double _breakpoint = 600;
 
 @override
@@ -121,7 +121,7 @@ This pattern is not just good UX — it is good accessibility. `NavigationRail` 
 
 ## Sharing business logic — models, state, and data layers
 
-The cleanest part of porting AccessBank to wwwBank was everything that did not need to change. The entire `lib/data/` directory is identical between the two apps:
+The cleanest part of porting AccessBank to WebBank was everything that did not need to change. The entire `lib/data/` directory is identical between the two apps:
 
 - `models/account.dart` — `Account`, `AccountType`
 - `models/transaction.dart` — `Transaction`
@@ -139,7 +139,7 @@ This is one of Flutter's strongest value propositions: you write your business l
 
 Some capabilities simply do not exist on one platform or the other. `dart:io` (file system, processes, sockets) is not available on web. The web platform API (`package:web`, `dart:js_interop`) is not available on mobile. The conventional solution is the **conditional import / stub pattern**.
 
-wwwBank uses this pattern for the PostMessage bridge — a web-only feature that lets the tutorial iframe communicate with the app:
+WebBank uses this pattern for the PostMessage bridge — a web-only feature that lets the tutorial iframe communicate with the app:
 
 ```dart title="lib/tutorial/postmessage_bridge.dart"
 // Only import web libraries when running on web
@@ -213,7 +213,7 @@ On mobile, `MouseRegion` is silently ignored — it has no cost on platforms wit
 
 On web, the URL is the primary navigation primitive. Users bookmark URLs, share them, open them in new tabs, and hit the browser Back button. None of this exists on mobile.
 
-wwwBank uses `go_router` for URL-based navigation, which it shares conceptually with AccessBank's navigation stack but not structurally. The key differences:
+WebBank uses `go_router` for URL-based navigation, which it shares conceptually with AccessBank's navigation stack but not structurally. The key differences:
 
 - Mobile apps navigate with `push` and `pop` (a stack). Web apps navigate with `go` (replacing state) or `push` (adding to browser history).
 - Web URLs must be meaningful: `/dashboard`, `/transfer`, `/settings` rather than opaque identifiers.
@@ -238,7 +238,7 @@ abstract class AppRoutes {
 
 Phones are narrow and almost always portrait. Laptops are wide and landscape. Tablets are somewhere in between and can be either. The web adds an entirely new dimension: browser window resize.
 
-Mobile layout code frequently assumes a fixed-width, single-column layout. That assumption breaks immediately on web. wwwBank's `_AccountCardsGrid` in the dashboard handles this correctly:
+Mobile layout code frequently assumes a fixed-width, single-column layout. That assumption breaks immediately on web. WebBank's `_AccountCardsGrid` in the dashboard handles this correctly:
 
 ```dart
 LayoutBuilder(
@@ -315,7 +315,7 @@ Deployment:
 
 ## Congratulations
 
-You have reached the end of the wwwBank Flutter web accessibility tutorial. Over ten chapters, you built and explored a fully accessible, responsive, keyboard-navigable banking web app — from the first `flutter create` to a production deployment.
+You have reached the end of the WebBank Flutter web accessibility tutorial. Over ten chapters, you built and explored a fully accessible, responsive, keyboard-navigable banking web app — from the first `flutter create` to a production deployment.
 
 Here is what you learned:
 
@@ -328,7 +328,7 @@ Here is what you learned:
 - **Testing** with widget tests, semantics assertions, and Lighthouse CI
 - **Deployment** with PWA configuration and web hosting
 
-The accessible version of wwwBank is not harder to use than the inaccessible one — it is better for everyone. High contrast text is easier to read in bright sunlight. Keyboard navigation is faster for power users. Semantic labels help search engines as much as they help screen readers. Accessibility is quality.
+The accessible version of WebBank is not harder to use than the inaccessible one — it is better for everyone. High contrast text is easier to read in bright sunlight. Keyboard navigation is faster for power users. Semantic labels help search engines as much as they help screen readers. Accessibility is quality.
 
 <div className="wb-callout wb-callout--green">
 
@@ -364,7 +364,7 @@ Without this pattern, you could not reference web-only APIs (`package:web`, `dar
 
 ---
 
-**3. Why does `NavigationRail` appear on wide screens and `NavigationBar` on narrow screens in wwwBank, rather than using `NavigationBar` everywhere (as a mobile app would)?**
+**3. Why does `NavigationRail` appear on wide screens and `NavigationBar` on narrow screens in WebBank, rather than using `NavigationBar` everywhere (as a mobile app would)?**
 
 <details>
 <summary>Show answer</summary>

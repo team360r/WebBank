@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wwwbank/widgets/wwwbank_scaffold.dart';
+import 'package:webbank/widgets/webbank_scaffold.dart';
 
 void main() {
   Widget buildScaffold({double width = 800}) {
     return MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(size: Size(width, 600)),
-        child: WwwBankScaffold(
+        child: WebBankScaffold(
           accessible: true,
           currentIndex: 0,
           onTabChanged: (_) {},
@@ -32,7 +32,7 @@ void main() {
 
   testWidgets('shows app title in AppBar', (tester) async {
     await tester.pumpWidget(buildScaffold());
-    expect(find.text('wwwBank'), findsOneWidget);
+    expect(find.text('WebBank'), findsOneWidget);
   });
 
   testWidgets('shows accessibility toggle button', (tester) async {

@@ -7,13 +7,13 @@ description: "Tab order, keyboard shortcuts, focus management, and skip links"
 
 # Keyboard is King
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
 Keyboard accessibility is one of the most fundamental requirements of the web. Users who cannot use a mouse — because of motor impairments, temporary injuries, or simply because they prefer the keyboard — depend entirely on Tab, Enter, Space, and arrow keys to navigate your application. Screen reader users also navigate primarily by keyboard. If an element cannot be reached by keyboard, it effectively does not exist for those users.
 
-WCAG 2.1 Success Criterion 2.1.1 (Level A) states that all functionality must be operable through a keyboard interface. This is not a "nice to have" — it is the floor, the minimum. This chapter covers how Flutter web handles focus traversal and how you can ensure wwwBank meets that bar with confidence.
+WCAG 2.1 Success Criterion 2.1.1 (Level A) states that all functionality must be operable through a keyboard interface. This is not a "nice to have" — it is the floor, the minimum. This chapter covers how Flutter web handles focus traversal and how you can ensure WebBank meets that bar with confidence.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 ---
 
@@ -159,7 +159,7 @@ CallbackShortcuts(
   },
   child: Focus(
     autofocus: true,
-    child: WwwBankScaffold(
+    child: WebBankScaffold(
       accessible: accessible,
       currentIndex: currentIndex,
       onTabChanged: onTabChanged,
@@ -238,7 +238,7 @@ Focus indicators are the visual cue that tells keyboard users where they are. In
 
 <div className="wb-callout wb-callout--amber">
 
-**High contrast matters:** The default Material 3 focus ring uses the primary colour. Ensure your primary colour (wwwBank uses `#1565C0` — a dark blue) has sufficient contrast against the surface colour on which it appears. A 3:1 contrast ratio is the minimum for UI components under WCAG 2.1 SC 1.4.11.
+**High contrast matters:** The default Material 3 focus ring uses the primary colour. Ensure your primary colour (WebBank uses `#1565C0` — a dark blue) has sufficient contrast against the surface colour on which it appears. A 3:1 contrast ratio is the minimum for UI components under WCAG 2.1 SC 1.4.11.
 
 </div>
 
@@ -310,9 +310,9 @@ The `addPostFrameCallback` ensures the focus request happens after the route ani
 
 ## Practical exercise — keyboard shortcuts for the NavigationRail
 
-The `WwwBankScaffold` in `lib/widgets/wwwbank_scaffold.dart` renders a `NavigationRail` on wide screens. Your task is to add keyboard shortcuts so users can jump between tabs without Tab-navigating through the rail.
+The `WebBankScaffold` in `lib/widgets/webbank_scaffold.dart` renders a `NavigationRail` on wide screens. Your task is to add keyboard shortcuts so users can jump between tabs without Tab-navigating through the rail.
 
-1. Open `lib/widgets/wwwbank_scaffold.dart`.
+1. Open `lib/widgets/webbank_scaffold.dart`.
 2. Wrap the `Scaffold` body in a `CallbackShortcuts` + `Focus` pair.
 3. Add bindings for:
    - `Ctrl+1` — navigate to Dashboard (index 0)
@@ -352,12 +352,12 @@ Keyboard accessibility is required because users with motor impairments, users w
 
 ---
 
-**2. What is `FocusTraversalGroup` used for, and when would you use it in a layout like wwwBank?**
+**2. What is `FocusTraversalGroup` used for, and when would you use it in a layout like WebBank?**
 
 <details>
 <summary>Show answer</summary>
 
-`FocusTraversalGroup` defines a subtree with its own focus traversal policy, independent of other groups. In a layout like wwwBank — with a `NavigationRail` on the left and main content on the right — you would wrap each in its own `FocusTraversalGroup` so Tab traverses the navigation destinations as one group, then moves to the main content area as a separate group, matching the expected left-to-right reading and navigation order.
+`FocusTraversalGroup` defines a subtree with its own focus traversal policy, independent of other groups. In a layout like WebBank — with a `NavigationRail` on the left and main content on the right — you would wrap each in its own `FocusTraversalGroup` so Tab traverses the navigation destinations as one group, then moves to the main content area as a separate group, matching the expected left-to-right reading and navigation order.
 
 </details>
 

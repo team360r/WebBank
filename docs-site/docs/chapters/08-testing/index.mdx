@@ -7,13 +7,13 @@ description: "Widget tests, integration tests, and Lighthouse CI for accessibili
 
 # Test the Web
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
-You have spent seven chapters making wwwBank accessible. Semantic labels, keyboard navigation, form validation, colour contrast — all of it can silently regress the moment someone refactors a widget, changes a color, or restructures a screen. Testing is the net that catches regressions before your users do.
+You have spent seven chapters making WebBank accessible. Semantic labels, keyboard navigation, form validation, colour contrast — all of it can silently regress the moment someone refactors a widget, changes a color, or restructures a screen. Testing is the net that catches regressions before your users do.
 
-This chapter covers three layers of testing: unit tests for state logic, widget tests for semantics and responsive behaviour, and Lighthouse CI for automated accessibility audits in your GitHub Actions pipeline. The wwwBank codebase already has tests you can learn from — let's read them, extend them, and run them.
+This chapter covers three layers of testing: unit tests for state logic, widget tests for semantics and responsive behaviour, and Lighthouse CI for automated accessibility audits in your GitHub Actions pipeline. The WebBank codebase already has tests you can learn from — let's read them, extend them, and run them.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 ---
 
@@ -29,11 +29,11 @@ The good news is that Flutter's test tooling is excellent. Widget tests run in u
 
 ## Unit tests — AppState
 
-The simplest tests are unit tests for business logic. wwwBank's `AppState` manages login status, tab selection, and the accessible mode toggle. Because it is a plain `ChangeNotifier` with no widget dependencies, it can be tested without any widget infrastructure:
+The simplest tests are unit tests for business logic. WebBank's `AppState` manages login status, tab selection, and the accessible mode toggle. Because it is a plain `ChangeNotifier` with no widget dependencies, it can be tested without any widget infrastructure:
 
 ```dart title="test/app_state_test.dart"
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wwwbank/app_state.dart';
+import 'package:webbank/app_state.dart';
 
 void main() {
   late AppState state;
@@ -79,14 +79,14 @@ flutter test test/app_state_test.dart
 
 ## Widget tests — scaffold responsive behaviour
 
-Widget tests use `tester.pumpWidget` to render a widget tree into a virtual frame and then make assertions on what was rendered. The scaffold test in wwwBank uses `MediaQuery` to simulate different screen widths:
+Widget tests use `tester.pumpWidget` to render a widget tree into a virtual frame and then make assertions on what was rendered. The scaffold test in WebBank uses `MediaQuery` to simulate different screen widths:
 
-```dart title="test/widgets/wwwbank_scaffold_test.dart"
+```dart title="test/widgets/webbank_scaffold_test.dart"
 Widget buildScaffold({double width = 800}) {
   return MaterialApp(
     home: MediaQuery(
       data: MediaQueryData(size: Size(width, 600)),
-      child: WwwBankScaffold(
+      child: WebBankScaffold(
         accessible: true,
         currentIndex: 0,
         onTabChanged: (_) {},
@@ -110,7 +110,7 @@ testWidgets('shows NavigationBar on narrow screens', (tester) async {
 });
 ```
 
-The breakpoint in `WwwBankScaffold` is 600 logical pixels — anything at or above that threshold gets `NavigationRail`; anything below gets `NavigationBar`. These tests lock that contract in. If someone changes the breakpoint constant to 700 accidentally, a test fails immediately and the reviewer knows exactly what changed and why.
+The breakpoint in `WebBankScaffold` is 600 logical pixels — anything at or above that threshold gets `NavigationRail`; anything below gets `NavigationBar`. These tests lock that contract in. If someone changes the breakpoint constant to 700 accidentally, a test fails immediately and the reviewer knows exactly what changed and why.
 
 <div className="wb-callout wb-callout--blue">
 
@@ -205,7 +205,7 @@ Create an integration test in `integration_test/`:
 ```dart title="integration_test/accessibility_test.dart"
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:wwwbank/main.dart' as app;
+import 'package:webbank/main.dart' as app;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -412,7 +412,7 @@ Flutter normally skips building the full semantic tree in tests because it is ex
 <details>
 <summary>Show answer</summary>
 
-The default test frame size in Flutter's widget test environment may not match the breakpoints your layout logic uses. `WwwBankScaffold` switches between `NavigationRail` and `NavigationBar` at 600 logical pixels. By explicitly passing `MediaQueryData(size: Size(800, 600))` or `Size(500, 600)`, the test controls which side of the breakpoint it lands on. Relying on the default frame size would make tests brittle — they could pass or fail depending on the test environment's default dimensions.
+The default test frame size in Flutter's widget test environment may not match the breakpoints your layout logic uses. `WebBankScaffold` switches between `NavigationRail` and `NavigationBar` at 600 logical pixels. By explicitly passing `MediaQueryData(size: Size(800, 600))` or `Size(500, 600)`, the test controls which side of the breakpoint it lands on. Relying on the default frame size would make tests brittle — they could pass or fail depending on the test environment's default dimensions.
 
 </details>
 

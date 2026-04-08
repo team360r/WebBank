@@ -1,12 +1,12 @@
 ---
 sidebar_position: 2
-title: "Quiz: Hello wwwBank"
+title: "Quiz: Hello WebBank"
 ---
 
 import Quiz from '@site/src/components/Quiz/Quiz';
 import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
 
-# Quiz: Hello wwwBank
+# Quiz: Hello WebBank
 
 <Quiz chapterId="ch01">
   <QuizQuestion
@@ -29,10 +29,10 @@ import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
       "To define the initial route of the application"
     ]}
     correctIndex={1}
-    explanation="ShellRoute wraps its child routes with a shared builder widget — in wwwBank, that's WwwBankScaffold. This means the navigation rail and header stay mounted while only the body slot changes as you navigate between routes."
+    explanation="ShellRoute wraps its child routes with a shared builder widget — in WebBank, that's WebBankScaffold. This means the navigation rail and header stay mounted while only the body slot changes as you navigate between routes."
   />
   <QuizQuestion
-    question="In wwwBank, how does go_router know to re-run the auth redirect when the user logs in?"
+    question="In WebBank, how does go_router know to re-run the auth redirect when the user logs in?"
     options={[
       "A Timer polls AppState every second",
       "The redirect function is called on every widget rebuild",
@@ -43,7 +43,7 @@ import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
     explanation="Passing refreshListenable: appState to GoRouter links the router's redirect logic to AppState's ChangeNotifier. Every time appState.notifyListeners() fires — on login or logout — go_router re-runs the redirect function and updates the active route."
   />
   <QuizQuestion
-    question="At what viewport width does WwwBankScaffold switch from BottomNavigationBar to NavigationRail?"
+    question="At what viewport width does WebBankScaffold switch from BottomNavigationBar to NavigationRail?"
     options={[
       "400 px",
       "480 px",
@@ -51,6 +51,6 @@ import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
       "768 px"
     ]}
     correctIndex={2}
-    explanation="WwwBankScaffold defines a _breakpoint constant of 600 px. When MediaQuery.sizeOf(context).width is 600 or greater, it renders NavigationRail inside a Row. Below 600 px, the body fills the full height and NavigationBar appears at the bottom."
+    explanation="WebBankScaffold defines a _breakpoint constant of 600 px. When MediaQuery.sizeOf(context).width is 600 or greater, it renders NavigationRail inside a Row. Below 600 px, the body fills the full height and NavigationBar appears at the bottom."
   />
 </Quiz>

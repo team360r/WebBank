@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wwwbank/data/models/account.dart';
+import 'package:webbank/data/models/account.dart';
 
 void main() {
   test('Account stores all fields', () {

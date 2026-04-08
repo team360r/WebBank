@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wwwbank/app_state.dart';
-import 'package:wwwbank/router.dart';
+import 'package:webbank/app_state.dart';
+import 'package:webbank/router.dart';
 
 void main() {
   testWidgets('redirects to /login when not logged in', (tester) async {

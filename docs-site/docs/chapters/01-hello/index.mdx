@@ -1,15 +1,15 @@
 ---
 sidebar_position: 1
 slug: /chapters/hello
-title: "Chapter 1: Hello wwwBank"
+title: "Chapter 1: Hello WebBank"
 description: "Build the app shell with NavigationRail and go_router"
 ---
 
-# Hello wwwBank
+# Hello WebBank
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
-Welcome to wwwBank — the fictional banking app that you'll be making accessible over the course of this tutorial. In this chapter we'll take a guided tour of the codebase, understand the app shell pattern, and see how `NavigationRail` and `go_router` work together to give the app its structure.
+Welcome to WebBank — the fictional banking app that you'll be making accessible over the course of this tutorial. In this chapter we'll take a guided tour of the codebase, understand the app shell pattern, and see how `NavigationRail` and `go_router` work together to give the app its structure.
 
 <div className="wb-callout wb-callout--blue">
 
@@ -24,15 +24,15 @@ Welcome to wwwBank — the fictional banking app that you'll be making accessibl
 Clone the repo (if you haven't already) and run the app in Chrome:
 
 ```bash
-git clone https://github.com/your-org/wwwBank.git
-cd wwwBank
+git clone https://github.com/your-org/WebBank.git
+cd WebBank
 flutter pub get
 flutter run -d chrome
 ```
 
 You should see a login screen. Enter any email and password — the demo app accepts any credentials. Once you press **Sign In**, you'll land on the dashboard.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 Take a moment to click around. Notice:
 
@@ -49,12 +49,12 @@ Open `lib/` in your editor. Here's what you'll find:
 ```
 lib/
   main.dart          ← Entry point — just calls runApp()
-  app.dart           ← WwwBankApp widget, wires together router + theme + bridge
+  app.dart           ← WebBankApp widget, wires together router + theme + bridge
   app_state.dart     ← ChangeNotifier that holds login state and the accessible flag
   router.dart        ← All go_router configuration
   theme/             ← Light and dark ThemeData
   screens/           ← One folder per screen (dashboard, login, transactions, transfer, settings)
-  widgets/           ← Shared widgets — WwwBankScaffold lives here
+  widgets/           ← Shared widgets — WebBankScaffold lives here
   data/              ← Mock data models and sample accounts/transactions
   tutorial/          ← PostMessage bridge that lets the docs embed control the app
 ```
@@ -65,13 +65,13 @@ The architecture is intentionally flat. There's no Riverpod, no BLoC, no complex
 
 ## The app shell pattern
 
-Many web apps share the same idea: a persistent outer **shell** (header, navigation) that wraps swappable inner **content**. In wwwBank, the shell is `WwwBankScaffold`.
+Many web apps share the same idea: a persistent outer **shell** (header, navigation) that wraps swappable inner **content**. In WebBank, the shell is `WebBankScaffold`.
 
-Open `lib/widgets/wwwbank_scaffold.dart`:
+Open `lib/widgets/webbank_scaffold.dart`:
 
 ```dart
-class WwwBankScaffold extends StatelessWidget {
-  const WwwBankScaffold({
+class WebBankScaffold extends StatelessWidget {
+  const WebBankScaffold({
     super.key,
     required this.accessible,
     required this.currentIndex,
@@ -89,7 +89,7 @@ class WwwBankScaffold extends StatelessWidget {
 }
 ```
 
-`WwwBankScaffold` is a pure display widget — it takes everything it needs as constructor parameters and owns no state of its own. The `body` slot is filled by whichever screen the router is currently showing.
+`WebBankScaffold` is a pure display widget — it takes everything it needs as constructor parameters and owns no state of its own. The `body` slot is filled by whichever screen the router is currently showing.
 
 ### Responsive switching
 
@@ -122,7 +122,7 @@ When the viewport is wide, `NavigationRail` sits on the left inside a `Row`, and
 
 `NavigationRail` is Flutter's dedicated widget for vertical navigation in desktop and tablet layouts. It maps directly to the ARIA `navigation` landmark and (in the HTML renderer) produces a `<nav>` element in the DOM.
 
-Here's how wwwBank configures it:
+Here's how WebBank configures it:
 
 ```dart
 NavigationRail(
@@ -178,7 +178,7 @@ GoRouter createRouter(AppState appState, {GlobalKey<NavigatorState>? navigatorKe
     routes: [
       GoRoute(path: '/login', builder: ...),
       ShellRoute(
-        builder: (context, state, child) => WwwBankScaffold(..., body: child),
+        builder: (context, state, child) => WebBankScaffold(..., body: child),
         routes: [
           GoRoute(path: '/', builder: ...),
           GoRoute(path: '/transactions', builder: ...),
@@ -203,13 +203,13 @@ This means you *cannot* reach the dashboard without logging in, and you *cannot*
 
 ### The ShellRoute pattern
 
-`ShellRoute` is the go_router concept that enables the app shell pattern. Instead of each route rendering a full standalone screen, the `ShellRoute`'s `builder` wraps all of its child routes in a persistent outer widget — `WwwBankScaffold` in our case.
+`ShellRoute` is the go_router concept that enables the app shell pattern. Instead of each route rendering a full standalone screen, the `ShellRoute`'s `builder` wraps all of its child routes in a persistent outer widget — `WebBankScaffold` in our case.
 
 The `child` parameter in the `ShellRoute` builder is the currently active child route's widget. So when you navigate to `/transactions`, go_router:
 
 1. Matches `/transactions` to the `GoRoute` under the `ShellRoute`.
 2. Builds `TransactionsScreen(...)` as `child`.
-3. Passes `child` into `WwwBankScaffold(body: child)`.
+3. Passes `child` into `WebBankScaffold(body: child)`.
 4. The scaffold renders with the navigation rail, header, and the transactions screen in the body slot.
 
 The navigation rail never rebuilds — only the `body` slot changes. That's efficient and also good for accessibility because screen reader users aren't thrown back to the top of the page on every navigation.
@@ -253,7 +253,7 @@ Throughout the tutorial you'll be adding `if (accessible)` branches — progress
 
 <div className="wb-callout wb-callout--green">
 
-**You now know the whole app.** `main.dart` starts the app. `app.dart` wires up the router and theme. `router.dart` guards routes and shells the navigation. `WwwBankScaffold` renders the persistent navigation. `AppState` holds login state and the accessibility toggle. Everything else is screens.
+**You now know the whole app.** `main.dart` starts the app. `app.dart` wires up the router and theme. `router.dart` guards routes and shells the navigation. `WebBankScaffold` renders the persistent navigation. `AppState` holds login state and the accessibility toggle. Everything else is screens.
 
 </div>
 
@@ -261,6 +261,6 @@ Throughout the tutorial you'll be adding `if (accessible)` branches — progress
 
 ## What's Next
 
-In **Chapter 2: Think Responsive**, we'll go deeper on `WwwBankScaffold`'s responsive breakpoints, look at `LayoutBuilder` for finer-grained adaptations, and make sure our layout works well for keyboard users at every viewport size.
+In **Chapter 2: Think Responsive**, we'll go deeper on `WebBankScaffold`'s responsive breakpoints, look at `LayoutBuilder` for finer-grained adaptations, and make sure our layout works well for keyboard users at every viewport size.
 
 → [Chapter 2: Think Responsive](/chapters/responsive)

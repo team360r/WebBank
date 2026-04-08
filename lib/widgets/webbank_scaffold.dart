@@ -23,8 +23,8 @@ const List<IconData> _tabSelectedIcons = [
 
 const double _breakpoint = 600;
 
-class WwwBankScaffold extends StatelessWidget {
-  const WwwBankScaffold({
+class WebBankScaffold extends StatelessWidget {
+  const WebBankScaffold({
     super.key,
     required this.accessible,
     required this.currentIndex,
@@ -46,7 +46,7 @@ class WwwBankScaffold extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('wwwBank'),
+        title: const Text('WebBank'),
         actions: [
           IconButton(
             icon: Icon(

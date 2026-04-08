@@ -7,13 +7,13 @@ description: "Set up Chrome DevTools, Lighthouse, and screen readers for web acc
 
 # Your Web Toolkit
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
 Before you write a single line of accessible code, you need to know how to *measure* accessibility. This chapter walks you through every tool you'll reach for during the tutorial — and during the rest of your career as a Flutter web developer.
 
-<WwwBankEmbed route="/login" height={420} />
+<WebBankEmbed route="/login" height={420} />
 
-The embed above is wwwBank — the demo banking app we'll be making accessible together. Open it in a fresh tab alongside this page and use it as a live playground while you read.
+The embed above is WebBank — the demo banking app we'll be making accessible together. Open it in a fresh tab alongside this page and use it as a live playground while you read.
 
 ---
 
@@ -21,7 +21,7 @@ The embed above is wwwBank — the demo banking app we'll be making accessible t
 
 Chrome is your primary browser for this tutorial because its DevTools have the most mature accessibility tooling. Let's find the panel.
 
-1. Open Chrome and navigate to the wwwBank embed URL (or any page).
+1. Open Chrome and navigate to the WebBank embed URL (or any page).
 2. Press **F12** (Windows/Linux) or **Cmd + Option + I** (macOS) to open DevTools.
 3. Click the **Elements** tab, then look for the **Accessibility** sub-panel on the right. If you don't see it, click the `>>` overflow arrow.
 
@@ -40,7 +40,7 @@ The Accessibility panel shows you the **accessibility tree** — a parallel repr
 
 ### What to look for
 
-When you inspect the wwwBank login screen, you want to see:
+When you inspect the WebBank login screen, you want to see:
 
 - The **Sign In** button has an accessible name of `"Sign In"` and a role of `button`.
 - The email and password text fields have roles of `textbox` and are labelled `"Email"` and `"Password"`.
@@ -58,7 +58,7 @@ Lighthouse is Google's automated auditing tool, built into Chrome DevTools. It s
 
 1. Open DevTools and click the **Lighthouse** tab.
 2. Make sure **Accessibility** is checked under *Categories*.
-3. Set the device to **Desktop** (wwwBank targets web, not mobile-first).
+3. Set the device to **Desktop** (WebBank targets web, not mobile-first).
 4. Click **Analyze page load**.
 
 Lighthouse runs the page, applies a set of rules based on **axe-core** (the industry-standard accessibility checker), and returns a score from 0 to 100.
@@ -133,7 +133,7 @@ Flutter paints everything onto a `<canvas>` element — like a game engine. The 
 
 <div className="wb-callout wb-callout--amber">
 
-**Warning:** wwwBank uses the HTML renderer by default. If you switch to CanvasKit, every chapter's accessibility work still applies — Flutter's semantics layer is renderer-agnostic — but you'll find it harder to inspect the DOM directly with DevTools. Stick with the HTML renderer during this tutorial.
+**Warning:** WebBank uses the HTML renderer by default. If you switch to CanvasKit, every chapter's accessibility work still applies — Flutter's semantics layer is renderer-agnostic — but you'll find it harder to inspect the DOM directly with DevTools. Stick with the HTML renderer during this tutorial.
 
 </div>
 
@@ -147,7 +147,7 @@ In the HTML renderer, the semantics tree is also reflected as hidden ARIA attrib
 
 ## Flutter DevTools for Web
 
-Flutter DevTools work in the browser, not just desktop. When you run wwwBank with `flutter run -d chrome`, a DevTools URL prints in the terminal.
+Flutter DevTools work in the browser, not just desktop. When you run WebBank with `flutter run -d chrome`, a DevTools URL prints in the terminal.
 
 ```bash
 flutter run -d chrome
@@ -177,6 +177,6 @@ Open that URL and you get the full DevTools suite including:
 
 ## What's Next
 
-In **Chapter 1: Hello wwwBank**, we'll tour the app's structure — the `lib/` directory, the `WwwBankScaffold` shell, and how `go_router` connects everything. You'll run the app for the first time and understand the moving parts before we start making them accessible.
+In **Chapter 1: Hello WebBank**, we'll tour the app's structure — the `lib/` directory, the `WebBankScaffold` shell, and how `go_router` connects everything. You'll run the app for the first time and understand the moving parts before we start making them accessible.
 
-→ [Chapter 1: Hello wwwBank](/chapters/hello)
+→ [Chapter 1: Hello WebBank](/chapters/hello)

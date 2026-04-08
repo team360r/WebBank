@@ -7,13 +7,13 @@ description: "URL routing, deep links, and browser history with go_router"
 
 # Every Page Has an Address
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
 On mobile, your users never see URLs. They tap an icon, swipe between screens, and the address bar doesn't exist. On the web, every page the user visits has a URL — and users have strong expectations about what that means. They expect the back button to work. They expect to be able to bookmark a page and return to it later. They expect to paste a link to the transactions list and have their colleague land exactly there.
 
-This chapter walks through how wwwBank uses `go_router` to meet all of those expectations.
+This chapter walks through how WebBank uses `go_router` to meet all of those expectations.
 
-<WwwBankEmbed route="/transactions" height={480} />
+<WebBankEmbed route="/transactions" height={480} />
 
 Click through the navigation tabs in the embed above. If you're reading this on a wide screen, watch the URL bar in the main browser — you'll see it change as the embed's router pushes navigation events.
 
@@ -47,13 +47,13 @@ GoRoute(
 
 The `builder` function receives `context` and a `GoRouterState` (which carries path parameters, query parameters, and so on). It returns whatever widget should fill the screen for that path.
 
-In wwwBank, all four main screens are registered this way — `/`, `/transactions`, `/transfer`, and `/settings`.
+In WebBank, all four main screens are registered this way — `/`, `/transactions`, `/transfer`, and `/settings`.
 
 ---
 
 ## ShellRoute — the persistent UI shell
 
-The four main screens share a navigation shell: the `WwwBankScaffold` with its app bar and navigation rail or bar. That shell should not disappear and reappear on every navigation; it should persist while only the inner content changes.
+The four main screens share a navigation shell: the `WebBankScaffold` with its app bar and navigation rail or bar. That shell should not disappear and reappear on every navigation; it should persist while only the inner content changes.
 
 That's exactly what `ShellRoute` is for. Open `lib/router.dart`:
 
@@ -63,7 +63,7 @@ ShellRoute(
     listenable: appState,
     builder: (context, _) {
       final index = _indexFromLocation(state.matchedLocation);
-      return WwwBankScaffold(
+      return WebBankScaffold(
         accessible: appState.accessible,
         currentIndex: index,
         onTabChanged: (i) => _navigateToTab(context, i),
@@ -81,7 +81,7 @@ ShellRoute(
 ),
 ```
 
-The `ShellRoute` builder receives a `child` argument — the widget built by whichever nested `GoRoute` matched. The shell wraps it in `WwwBankScaffold` and passes `child` as the `body`. When the user navigates from `/` to `/transactions`, the `WwwBankScaffold` stays alive and only its `body` slot is swapped.
+The `ShellRoute` builder receives a `child` argument — the widget built by whichever nested `GoRoute` matched. The shell wraps it in `WebBankScaffold` and passes `child` as the `body`. When the user navigates from `/` to `/transactions`, the `WebBankScaffold` stays alive and only its `body` slot is swapped.
 
 This has an accessibility benefit: the navigation rail and app bar never rebuild, so screen readers don't announce the navigation region again after each route change. Only the new content region is announced.
 
@@ -95,7 +95,7 @@ This has an accessibility benefit: the navigation rail and app bar never rebuild
 
 ## The auth redirect — guarding routes
 
-wwwBank uses go_router's `redirect` parameter to prevent unauthenticated access to any route. Here's the full router setup from `lib/router.dart`:
+WebBank uses go_router's `redirect` parameter to prevent unauthenticated access to any route. Here's the full router setup from `lib/router.dart`:
 
 ```dart
 GoRouter createRouter(AppState appState, {GlobalKey<NavigatorState>? navigatorKey}) {
@@ -135,7 +135,7 @@ The `refreshListenable: appState` line is the other half of the puzzle. When `Ap
 
 One of go_router's best features is that you get browser history for free. Every call to `context.go(path)` pushes a new entry to the browser's History API. The back button navigates to the previous entry, and go_router's integration ensures the correct route widget is rendered.
 
-This means you don't need to write any special code to support back navigation between wwwBank's tabs — go_router handles it.
+This means you don't need to write any special code to support back navigation between WebBank's tabs — go_router handles it.
 
 <div className="wb-callout wb-callout--amber">
 
@@ -172,9 +172,9 @@ void _navigateToTab(BuildContext context, int index) {
 }
 ```
 
-`_indexFromLocation` converts the current URL path into a tab index for `WwwBankScaffold.currentIndex`. It's called inside the `ShellRoute` builder using `state.matchedLocation`.
+`_indexFromLocation` converts the current URL path into a tab index for `WebBankScaffold.currentIndex`. It's called inside the `ShellRoute` builder using `state.matchedLocation`.
 
-`_navigateToTab` converts a tab index back into a path and calls `context.go(path)`. It's passed as `onTabChanged` to `WwwBankScaffold`.
+`_navigateToTab` converts a tab index back into a path and calls `context.go(path)`. It's passed as `onTabChanged` to `WebBankScaffold`.
 
 These two functions are the only place where the mapping between indices and paths is defined. If you add a new tab, you change it here.
 
@@ -202,7 +202,7 @@ If you're not logged in, the auth redirect kicks in and sends you to `/login` fi
 
 ## The PostMessage bridge — how the embedded app responds to route commands
 
-You may have noticed that clicking the WwwBankEmbed in these docs actually navigates the embedded Flutter app. That works through a `postMessage` bridge defined in `lib/tutorial/postmessage_bridge.dart`.
+You may have noticed that clicking the WebBankEmbed in these docs actually navigates the embedded Flutter app. That works through a `postMessage` bridge defined in `lib/tutorial/postmessage_bridge.dart`.
 
 The embed's host page can send messages into the iframe:
 
@@ -279,6 +279,6 @@ The `redirect` function runs before the navigation completes. It sees `!isLogged
 <details>
 <summary>Show answer</summary>
 
-`ShellRoute` wraps a set of child routes in a persistent outer widget (the `WwwBankScaffold`). Because the shell never unmounts on navigation, screen readers don't announce the navigation region again when the user switches tabs — only the new content area changes. This creates a calmer, less repetitive screen reader experience compared to rebuilding the entire page on every route change.
+`ShellRoute` wraps a set of child routes in a persistent outer widget (the `WebBankScaffold`). Because the shell never unmounts on navigation, screen readers don't announce the navigation region again when the user switches tabs — only the new content area changes. This creates a calmer, less repetitive screen reader experience compared to rebuilding the entire page on every route change.
 
 </details>

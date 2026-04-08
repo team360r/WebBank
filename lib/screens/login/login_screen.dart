@@ -30,7 +30,7 @@ class LoginScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'wwwBank',
+                    'WebBank',
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),

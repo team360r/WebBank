@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wwwbank/app_state.dart';
+import 'package:webbank/app_state.dart';
 
 void main() {
   late AppState state;

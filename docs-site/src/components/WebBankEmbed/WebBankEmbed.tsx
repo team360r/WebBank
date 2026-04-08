@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import styles from './WwwBankEmbed.module.css';
+import styles from './WebBankEmbed.module.css';
 
-interface WwwBankEmbedProps {
+interface WebBankEmbedProps {
   route?: string;
   height?: number;
   accessible?: boolean;
@@ -9,18 +9,18 @@ interface WwwBankEmbedProps {
 
 const APP_ORIGIN = 'http://localhost:8080';
 
-export default function WwwBankEmbed({
+export default function WebBankEmbed({
   route = '/',
   height: initialHeight = 500,
   accessible,
-}: WwwBankEmbedProps) {
+}: WebBankEmbedProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(initialHeight);
 
   const sendMessage = useCallback(
     (type: string, payload: Record<string, unknown> = {}) => {
       iframeRef.current?.contentWindow?.postMessage(
-        { source: 'wwwbank-tutorial', type, ...payload },
+        { source: 'webbank-tutorial', type, ...payload },
         APP_ORIGIN,
       );
     },
@@ -50,7 +50,7 @@ export default function WwwBankEmbed({
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <span>wwwBank Preview</span>
+        <span>WebBank Preview</span>
         <div className={styles.controls}>
           <button
             className={styles.controlButton}
@@ -73,7 +73,7 @@ export default function WwwBankEmbed({
         className={styles.iframe}
         src={APP_ORIGIN}
         style={{ height }}
-        title="wwwBank Flutter web app"
+        title="WebBank Flutter web app"
         allow="clipboard-write"
       />
       <div

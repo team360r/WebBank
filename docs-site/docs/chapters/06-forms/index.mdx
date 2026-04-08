@@ -7,13 +7,13 @@ description: "Accessible web forms with validation, autofill, and error announce
 
 # Forms That Work
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
-Forms are where most web accessibility work gets done — and where most accessibility failures happen. A form that a sighted user fills in with a mouse in thirty seconds might take a screen reader user five minutes if labels are missing, errors are invisible, or the tab order skips fields. Banking applications like wwwBank have an extra obligation: the forms handle real financial actions, so errors must be clear, unambiguous, and correctable.
+Forms are where most web accessibility work gets done — and where most accessibility failures happen. A form that a sighted user fills in with a mouse in thirty seconds might take a screen reader user five minutes if labels are missing, errors are invisible, or the tab order skips fields. Banking applications like WebBank have an extra obligation: the forms handle real financial actions, so errors must be clear, unambiguous, and correctable.
 
 This chapter uses the Transfer screen's three-step Stepper form as our primary teaching example. It's a realistic, non-trivial form with dropdowns, text inputs, validation, and a confirmation step — exactly the kind of form that rewards accessible implementation.
 
-<WwwBankEmbed route="/transfer" height={500} />
+<WebBankEmbed route="/transfer" height={500} />
 
 ---
 
@@ -276,7 +276,7 @@ The login screen at `lib/screens/login/login_screen.dart` uses plain `TextField`
 
 ## What's Next
 
-In **Chapter 7: See It Clearly**, we focus on the visual layer — colour contrast, text scaling, reduced motion, and dark mode. We'll use wwwBank's intentionally inaccessible colour palette to demonstrate real contrast failures, then show how `MediaQuery` lets you respond to system-level accessibility preferences.
+In **Chapter 7: See It Clearly**, we focus on the visual layer — colour contrast, text scaling, reduced motion, and dark mode. We'll use WebBank's intentionally inaccessible colour palette to demonstrate real contrast failures, then show how `MediaQuery` lets you respond to system-level accessibility preferences.
 
 → [Chapter 7: See It Clearly](/chapters/visual)
 

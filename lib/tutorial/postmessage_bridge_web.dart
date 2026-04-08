@@ -19,7 +19,7 @@ void listenForMessages(void Function(String type, Map<String, dynamic> payload) 
       final map = Map<String, dynamic>.from(dartObj);
 
       final source = map['source'] as String?;
-      if (source != 'wwwbank-tutorial') return;
+      if (source != 'webbank-tutorial') return;
 
       final type = map['type'] as String?;
       if (type == null) return;

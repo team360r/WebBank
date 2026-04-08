@@ -1,4 +1,4 @@
-# wwwbank
+# WebBank
 
 A new Flutter project.
 

@@ -1,5 +1,5 @@
-name: wwwbank
-description: "wwwBank: Learn Flutter web accessibility by building a banking dashboard"
+name: webbank
+description: "WebBank: Learn Flutter web accessibility by building a banking dashboard"
 publish_to: 'none'
 version: 1.0.0+1
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wwwbank/screens/login/login_screen.dart';
+import 'package:webbank/screens/login/login_screen.dart';
 
 void main() {
   testWidgets('login screen shows app name and sign in button', (tester) async {
@@ -15,7 +15,7 @@ void main() {
       ),
     );
 
-    expect(find.text('wwwBank'), findsOneWidget);
+    expect(find.text('WebBank'), findsOneWidget);
     expect(find.text('Sign In'), findsOneWidget);
 
     await tester.tap(find.text('Sign In'));

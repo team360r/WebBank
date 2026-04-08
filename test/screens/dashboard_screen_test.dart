@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wwwbank/screens/dashboard/dashboard_screen.dart';
+import 'package:webbank/screens/dashboard/dashboard_screen.dart';
 
 void main() {
   testWidgets('dashboard shows all account names', (tester) async {

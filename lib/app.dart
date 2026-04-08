@@ -5,14 +5,14 @@ import 'router.dart';
 import 'theme/app_theme.dart';
 import 'tutorial/postmessage_bridge.dart';
 
-class WwwBankApp extends StatefulWidget {
-  const WwwBankApp({super.key});
+class WebBankApp extends StatefulWidget {
+  const WebBankApp({super.key});
 
   @override
-  State<WwwBankApp> createState() => _WwwBankAppState();
+  State<WebBankApp> createState() => _WebBankAppState();
 }
 
-class _WwwBankAppState extends State<WwwBankApp> {
+class _WebBankAppState extends State<WebBankApp> {
   final AppState _appState = AppState();
   final _navigatorKey = GlobalKey<NavigatorState>();
   late final _router = createRouter(_appState, navigatorKey: _navigatorKey);
@@ -34,7 +34,7 @@ class _WwwBankAppState extends State<WwwBankApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'wwwBank',
+      title: 'WebBank',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

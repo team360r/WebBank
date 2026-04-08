@@ -7,13 +7,13 @@ description: "How Flutter semantics map to ARIA roles in the browser DOM"
 
 # The Semantics Web
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
 Flutter renders its UI to a canvas. That's great for visual fidelity — pixels look identical on every platform — but it presents a challenge for accessibility. Screen readers, switch controls, and other assistive technologies don't read pixels. They read a structured description of the UI: what each element *is*, what it *says*, and what *action* it performs.
 
 On native mobile, Flutter builds this description using the platform's native accessibility APIs (UIAccessibility on iOS, AccessibilityNodeInfo on Android). On the web, it exposes the information through the HTML DOM using ARIA attributes. This chapter explains how that works and what you can do to make it work well.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 ---
 
@@ -32,7 +32,7 @@ Where you *do* have to do something is for custom widgets, complex compound elem
 
 ## Flutter web and ARIA
 
-On the web, Flutter translates the semantics tree into a hidden but real HTML structure overlaid on the canvas. Open Chrome DevTools on your running wwwBank app and look at the Elements panel — you'll find a `<flt-semantics-host>` element containing a parallel DOM tree with ARIA roles and attributes.
+On the web, Flutter translates the semantics tree into a hidden but real HTML structure overlaid on the canvas. Open Chrome DevTools on your running WebBank app and look at the Elements panel — you'll find a `<flt-semantics-host>` element containing a parallel DOM tree with ARIA roles and attributes.
 
 For example, a `NavigationRail` produces something like:
 
@@ -216,7 +216,7 @@ Use live regions for:
 
 ## The accessible/inaccessible toggle — before and after
 
-wwwBank's `accessible` flag lets you see the before-and-after difference without switching files. Every screen receives `accessible` as a parameter. When `false`, you see the original inaccessible state. When `true`, the `Semantics`, `MergeSemantics`, and `ExcludeSemantics` wrappers are applied.
+WebBank's `accessible` flag lets you see the before-and-after difference without switching files. Every screen receives `accessible` as a parameter. When `false`, you see the original inaccessible state. When `true`, the `Semantics`, `MergeSemantics`, and `ExcludeSemantics` wrappers are applied.
 
 Try this now: toggle the accessibility icon (the person with arms raised) in the embed's top-right corner. Then open VoiceOver (Cmd+F5 on Mac) or NVDA and navigate the dashboard. The difference is audible.
 
@@ -241,7 +241,7 @@ Later chapters will show you how to remove the `if (accessible)` branches entire
 
 ## Practical exercise — inspect the dashboard semantics tree
 
-1. Run wwwBank in Chrome (`flutter run -d chrome`).
+1. Run WebBank in Chrome (`flutter run -d chrome`).
 2. Open DevTools (F12) and switch to the **Elements** tab.
 3. Press Ctrl+F and search for `flt-semantics`.
 4. Expand the tree and find the navigation element. What ARIA role does Flutter assign to `NavigationRail`?
@@ -258,7 +258,7 @@ Later chapters will show you how to remove the `if (accessible)` branches entire
 
 ## What's Next
 
-In **Chapter 5: Keyboard Navigation**, we'll make sure every interactive element in wwwBank can be reached and operated with a keyboard alone — the foundation for power-user accessibility and a requirement for WCAG 2.1 Level AA compliance.
+In **Chapter 5: Keyboard Navigation**, we'll make sure every interactive element in WebBank can be reached and operated with a keyboard alone — the foundation for power-user accessibility and a requirement for WCAG 2.1 Level AA compliance.
 
 → Chapter 5: Keyboard Navigation *(coming soon)*
 

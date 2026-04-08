@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 
-const STORAGE_KEY = 'wwwbank_progress';
+const STORAGE_KEY = 'webbank_progress';
 
 interface QuizState {
   answers: Record<number, number>;

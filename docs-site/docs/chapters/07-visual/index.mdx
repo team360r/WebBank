@@ -7,13 +7,13 @@ description: "Contrast ratios, text scaling, reduced motion, and dark mode"
 
 # See It Clearly
 
-import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
+import WebBankEmbed from '@site/src/components/WebBankEmbed/WebBankEmbed';
 
 Accessibility is not only about screen readers. Approximately 8% of men and 0.5% of women have some form of colour vision deficiency. Millions more have low vision that makes small or low-contrast text difficult to read. Users who are sensitive to motion — whether due to vestibular disorders, migraines, or personal preference — need animations they can turn off. Older users, and users on lower-quality displays, benefit from larger text and higher contrast.
 
 The good news is that Flutter gives you direct access to the system signals that users configure in their OS accessibility settings. `MediaQuery` exposes high contrast mode, text scale factor, animation preferences, and platform brightness. Responding to these signals is not extra work — it is respecting the choices your users have already made.
 
-<WwwBankEmbed route="/" height={480} />
+<WebBankEmbed route="/" height={480} />
 
 ---
 
@@ -32,7 +32,7 @@ The contrast ratio is calculated from the relative luminance of two colours — 
 
 <div className="wb-callout wb-callout--amber">
 
-**4.5:1 is the floor, not the target.** Designing to exactly 4.5:1 means your text fails for users on slightly miscalibrated displays or in bright sunlight on a mobile screen. Aim for 6:1 or higher for body text whenever your design allows it. wwwBank's accessible palette is designed with this margin built in.
+**4.5:1 is the floor, not the target.** Designing to exactly 4.5:1 means your text fails for users on slightly miscalibrated displays or in bright sunlight on a mobile screen. Aim for 6:1 or higher for body text whenever your design allows it. WebBank's accessible palette is designed with this margin built in.
 
 </div>
 
@@ -40,7 +40,7 @@ The contrast ratio is calculated from the relative luminance of two colours — 
 
 ## AppColors — two palettes, two stories
 
-wwwBank ships two colour palettes in `lib/theme/app_colors.dart`. The difference between them is stark:
+WebBank ships two colour palettes in `lib/theme/app_colors.dart`. The difference between them is stark:
 
 ```dart
 class AppColors {
@@ -134,7 +134,7 @@ Flutter's `Text` widget respects text scale automatically — any text size spec
 - Use `textScaleFactor: 1.0` to lock text to a specific size (this breaks accessibility)
 - Set `maxLines` without also providing `overflow: TextOverflow.ellipsis` and tooltip fallback
 
-wwwBank's theme defines minimum text sizes of 14sp across all body text styles:
+WebBank's theme defines minimum text sizes of 14sp across all body text styles:
 
 ```dart
 static TextTheme _buildTextTheme(Brightness brightness) {
@@ -177,7 +177,7 @@ Widget build(BuildContext context) {
 
 The same flag applies to page transitions, loading animations, and any decorative motion. A safe rule of thumb: anything that moves for more than 250ms, loops, or spans a large portion of the screen should be disabled or replaced with a simple fade when `disableAnimationsOf` returns `true`.
 
-For wwwBank's route transitions (managed by `go_router`), you can customise the transition builder:
+For WebBank's route transitions (managed by `go_router`), you can customise the transition builder:
 
 ```dart
 GoRoute(
@@ -205,7 +205,7 @@ The `MaterialApp.router` in `lib/app.dart` already declares both `theme` and `da
 
 ```dart
 MaterialApp.router(
-  title: 'wwwBank',
+  title: 'WebBank',
   theme: AppTheme.lightTheme,
   darkTheme: AppTheme.darkTheme,
   routerConfig: _router,
@@ -248,7 +248,7 @@ For Flutter web specifically, remember that the visible text is on the canvas �
 
 ## What's Next
 
-In **Chapter 8: Testing & Auditing**, we put everything together — running automated accessibility audits with axe-core, manual screen reader testing with VoiceOver and NVDA, and building an accessibility checklist for wwwBank. You'll learn how to integrate these checks into a CI pipeline so regressions don't slip through.
+In **Chapter 8: Testing & Auditing**, we put everything together — running automated accessibility audits with axe-core, manual screen reader testing with VoiceOver and NVDA, and building an accessibility checklist for WebBank. You'll learn how to integrate these checks into a CI pipeline so regressions don't slip through.
 
 → Chapter 8: Testing & Auditing *(coming soon)*
 
@@ -267,7 +267,7 @@ WCAG AA requires a contrast ratio of at least **4.5:1** for normal text (below 1
 
 ---
 
-**2. Why does wwwBank's dark theme use `AppColors.primaryLight` (`#5E92F3`) instead of the same `AppColors.primary` (`#1565C0`) used in the light theme?**
+**2. Why does WebBank's dark theme use `AppColors.primaryLight` (`#5E92F3`) instead of the same `AppColors.primary` (`#1565C0`) used in the light theme?**
 
 <details>
 <summary>Show answer</summary>
@@ -278,7 +278,7 @@ WCAG AA requires a contrast ratio of at least **4.5:1** for normal text (below 1
 
 ---
 
-**3. A user reports that animations in wwwBank make them feel dizzy. What Flutter API should you check first, and how would you respond to it?**
+**3. A user reports that animations in WebBank make them feel dizzy. What Flutter API should you check first, and how would you respond to it?**
 
 <details>
 <summary>Show answer</summary>
