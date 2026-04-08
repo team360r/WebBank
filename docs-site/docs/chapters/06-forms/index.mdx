@@ -7,8 +7,321 @@ description: "Accessible web forms with validation, autofill, and error announce
 
 # Forms That Work
 
-*Coming soon — this chapter will cover accessible form patterns for the web.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/transfer" height={400} />
+Forms are where most web accessibility work gets done — and where most accessibility failures happen. A form that a sighted user fills in with a mouse in thirty seconds might take a screen reader user five minutes if labels are missing, errors are invisible, or the tab order skips fields. Banking applications like wwwBank have an extra obligation: the forms handle real financial actions, so errors must be clear, unambiguous, and correctable.
+
+This chapter uses the Transfer screen's three-step Stepper form as our primary teaching example. It's a realistic, non-trivial form with dropdowns, text inputs, validation, and a confirmation step — exactly the kind of form that rewards accessible implementation.
+
+<WwwBankEmbed route="/transfer" height={500} />
+
+---
+
+## Why web forms need special attention
+
+On the web, browsers and operating systems provide a rich layer of form support: autofill for names, addresses, emails, and passwords; built-in validation UI; form associations between labels and inputs. Flutter web can participate in all of this — but only if you wire things up correctly.
+
+The key requirements for an accessible web form are:
+
+1. **Every field has a programmatic label** — not just a visual placeholder, but a label that screen readers can announce and that the browser uses to match autofill values.
+2. **Validation errors are announced** — when a field fails validation, the error message is surfaced to screen readers through a live region or by moving focus to the error.
+3. **Related fields are grouped** — credit card numbers, date fields, address groups, and similar multi-field inputs should be grouped semantically so screen readers can provide context.
+4. **Tab order is logical** — fields are reachable in the order a user would naturally fill them out.
+
+Flutter's `Form`, `TextFormField`, `AutofillGroup`, and `Semantics` widgets cover all of these when used together correctly.
+
+---
+
+## The Transfer screen — a tour
+
+The Transfer screen in `lib/screens/transfer/transfer_screen.dart` wraps a `Stepper` in a `Form`:
+
+```dart
+Form(
+  key: _formKey,
+  child: Stepper(
+    currentStep: _currentStep,
+    onStepContinue: () {
+      if (_currentStep == 1) {
+        if (_formKey.currentState!.validate()) {
+          setState(() => _currentStep = 2);
+        }
+      } else {
+        setState(() => _currentStep += 1);
+      }
+    },
+    steps: [
+      Step(
+        title: const Text('From Account'),
+        content: Column(
+          children: MockAccounts.all
+              .where((a) => a.type != AccountType.credit)
+              .map((account) => RadioListTile<Account>(
+                    title: Text(account.name),
+                    subtitle: Text(
+                      '£${account.balance.toStringAsFixed(2)}',
+                    ),
+                    value: account,
+                    groupValue: _fromAccount,
+                    onChanged: (v) => setState(() => _fromAccount = v),
+                  ))
+              .toList(),
+        ),
+      ),
+      // ...
+    ],
+  ),
+)
+```
+
+The `Form` widget provides a `GlobalKey<FormState>` that lets you call `validate()` across all descendant `FormField` widgets at once — triggering inline error messages for every invalid field simultaneously. This is the "submit-then-validate" pattern: validate on step continuation, not on every keystroke.
+
+---
+
+## TextFormField with InputDecoration — labels, not placeholders
+
+The Details step contains the transfer's key fields:
+
+```dart
+TextFormField(
+  controller: _amountController,
+  decoration: const InputDecoration(
+    labelText: 'Amount (£)',
+    border: OutlineInputBorder(),
+    prefixText: '£ ',
+  ),
+  keyboardType: TextInputType.number,
+  validator: (v) {
+    if (v == null || v.isEmpty) return 'Enter an amount';
+    final amount = double.tryParse(v);
+    if (amount == null || amount <= 0) {
+      return 'Enter a valid amount';
+    }
+    return null;
+  },
+),
+```
+
+The `labelText` in `InputDecoration` is not the same as a `hintText`. A `labelText` floats above the field when focused and maps to a proper `<label>` association in the Flutter semantics tree — screen readers announce it when the field receives focus. A `hintText` (placeholder) disappears when the user starts typing and is often announced less reliably by screen readers. Always prefer `labelText` over `hintText` for form fields.
+
+<div className="wb-callout wb-callout--amber">
+
+**Avoid hint-only labels:** Using `hintText: 'Enter amount'` without a `labelText` is a common mistake. Placeholder text disappears as soon as the user starts typing — a screen reader user who pauses mid-form can no longer discover what a field is for. `labelText` remains visible (floating above the field) and announced at all times.
+
+</div>
+
+---
+
+## autofillHints — enabling browser autofill
+
+The login screen's fields currently have no autofill hints. That means the browser cannot offer to fill the email and password automatically — which is particularly important for users who rely on password managers or device autofill:
+
+```dart
+// Current login screen — no autofill hints
+TextField(
+  decoration: const InputDecoration(
+    labelText: 'Email',
+    border: OutlineInputBorder(),
+  ),
+)
+```
+
+Adding `autofillHints` connects the field to the browser's autofill system:
+
+```dart
+// Accessible version — with autofill
+TextFormField(
+  autofillHints: const [AutofillHints.email],
+  decoration: const InputDecoration(
+    labelText: 'Email',
+    border: OutlineInputBorder(),
+  ),
+  keyboardType: TextInputType.emailAddress,
+  textInputAction: TextInputAction.next,
+)
+
+TextFormField(
+  autofillHints: const [AutofillHints.password],
+  obscureText: true,
+  decoration: const InputDecoration(
+    labelText: 'Password',
+    border: OutlineInputBorder(),
+  ),
+  textInputAction: TextInputAction.done,
+)
+```
+
+Flutter's `AutofillHints` class contains constants for dozens of field types: `email`, `password`, `username`, `name`, `givenName`, `familyName`, `streetAddressLine1`, `postalCode`, `creditCardNumber`, and many more. Choose the most specific constant that matches your field's purpose.
+
+<div className="wb-callout wb-callout--blue">
+
+**`textInputAction`:** The `TextInputAction.next` value tells the virtual keyboard (on mobile) to show a "Next" button instead of "Done" or "Return". Combined with the correct autofillHints, it creates the expected form-filling flow on both mobile and web.
+
+</div>
+
+---
+
+## AutofillGroup — grouping related fields
+
+On the web, browsers use the structure of a page to match autofill values. For a username + password form, the browser needs to see both fields as part of the same logical form group to offer the correct credentials. Flutter's `AutofillGroup` provides this grouping:
+
+```dart
+AutofillGroup(
+  child: Column(
+    children: [
+      TextFormField(
+        autofillHints: const [AutofillHints.email],
+        decoration: const InputDecoration(
+          labelText: 'Email',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: 16),
+      TextFormField(
+        autofillHints: const [AutofillHints.password],
+        obscureText: true,
+        decoration: const InputDecoration(
+          labelText: 'Password',
+          border: OutlineInputBorder(),
+        ),
+      ),
+    ],
+  ),
+)
+```
+
+When the user submits this form, `AutofillGroup.onDisposeAction` (which defaults to `AutofillContextAction.commit`) signals the browser that the autofill context is complete — prompting "Save password?" dialogs where appropriate. This is the mechanism that makes browser-native credential management work correctly with Flutter web.
+
+---
+
+## Validation patterns — inline error messages
+
+Flutter's `FormField` family renders validation errors inline below the field using the `errorText` returned by the `validator` callback. This is already pretty accessible: the error text appears in the DOM and Flutter marks it with `aria-describedby` semantics.
+
+You can go further by wrapping error messages in a live region so they are announced immediately when they appear, without the user having to navigate to the field:
+
+```dart
+// Error state container — place near the top of the form
+if (_showValidationError)
+  Semantics(
+    liveRegion: true,
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: Theme.of(context).colorScheme.onErrorContainer,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Please fix the errors below before continuing.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+```
+
+Set `_showValidationError = true` in `onStepContinue` after a failed `validate()` call. The `liveRegion: true` causes the screen reader to announce the message automatically — even if focus has not moved to the error container.
+
+<div className="wb-callout wb-callout--blue">
+
+**`liveRegion` maps to `aria-live="polite"`:** The announcement waits for the screen reader to finish whatever it is currently saying, then reads the new text. Use `liveRegion` for non-critical status updates. If an error requires immediate attention before the user can continue, consider also moving focus to the error message with `FocusNode.requestFocus()`.
+
+</div>
+
+---
+
+## Field grouping and logical tab order
+
+The Transfer screen's Stepper already provides a reasonable Tab order — the radio buttons in step 1 are traversed in the order they appear in `MockAccounts.all`, and the fields in step 2 traverse top to bottom: To Account → Amount → Reference.
+
+For more complex forms, ensure that:
+- Logical groups of fields (e.g., billing address vs. shipping address) are wrapped in `FocusTraversalGroup` with their own traversal policy.
+- Fields that only apply conditionally (rendered when a checkbox is checked, for example) are excluded from Tab order when hidden — Flutter handles this automatically if you use `Visibility` or `if` conditionals rather than `Opacity(opacity: 0)`.
+- The confirmation step (step 3 of the Transfer) does not contain any form fields — it is a read-only summary. Ensure there are no interactive fields that accidentally receive focus in that step.
+
+---
+
+## Practical exercise — adding autofill to the login form
+
+The login screen at `lib/screens/login/login_screen.dart` uses plain `TextField` widgets with no autofill hints:
+
+1. Open `lib/screens/login/login_screen.dart`.
+2. Change both `TextField` widgets to `TextFormField`.
+3. Wrap both fields in a `Form` widget with a `GlobalKey<FormState>`.
+4. Wrap both fields in an `AutofillGroup`.
+5. Add `autofillHints: const [AutofillHints.email]` to the email field.
+6. Add `autofillHints: const [AutofillHints.password]` to the password field.
+7. Add `textInputAction: TextInputAction.next` to the email field and `TextInputAction.done` to the password field.
+8. Run in Chrome and test: does the browser offer to fill in your email? Does your password manager recognise the form?
+
+<div className="wb-callout wb-callout--green">
+
+**Success criteria:** Opening the login form in Chrome shows a browser autofill suggestion for the email field. The password manager (if configured) offers saved credentials. On mobile (iOS or Android), the keyboard shows "Next" after the email field and "Done" after the password field.
+
+</div>
+
+---
+
+## What's Next
+
+In **Chapter 7: See It Clearly**, we focus on the visual layer — colour contrast, text scaling, reduced motion, and dark mode. We'll use wwwBank's intentionally inaccessible colour palette to demonstrate real contrast failures, then show how `MediaQuery` lets you respond to system-level accessibility preferences.
+
+→ [Chapter 7: See It Clearly](/chapters/visual)
+
+---
+
+## Quiz
+
+**1. Why is `labelText` in `InputDecoration` better than `hintText` for accessible forms?**
+
+<details>
+<summary>Show answer</summary>
+
+`labelText` creates a persistent, floating label that remains visible above the field after the user starts typing, and it maps to a proper label association in the semantics tree — screen readers announce it when the field receives focus. `hintText` (placeholder text) disappears as soon as text is entered, so a user who pauses mid-form cannot discover what a field is for. It is also announced inconsistently by screen readers and cannot be relied upon as the sole label for a field.
+
+</details>
+
+---
+
+**2. What does `AutofillGroup` do and why is it needed?**
+
+<details>
+<summary>Show answer</summary>
+
+`AutofillGroup` groups related form fields so the browser can match autofill values correctly — for example, recognising that an email field and a password field belong to the same login form. Without `AutofillGroup`, the browser may not offer to fill credentials or save them after submission. When the group is disposed (on form submission), it signals the browser to commit the autofill context, which triggers "Save password?" prompts.
+
+</details>
+
+---
+
+**3. When should you use `liveRegion: true` on a validation error container?**
+
+<details>
+<summary>Show answer</summary>
+
+Use `liveRegion: true` when you want a screen reader to announce a validation error automatically, without requiring the user to navigate focus to the error message. This is particularly useful for a summary error banner that appears at the top of a form after a failed submission — the user is still focused on the Submit button or the last field, but `liveRegion` causes the error text to be announced immediately (politely, after any current speech finishes).
+
+</details>
+
+---
+
+**4. The Transfer screen's confirmation step (step 3) shows a read-only summary of the transfer details. What accessibility consideration applies specifically to this step?**
+
+<details>
+<summary>Show answer</summary>
+
+The confirmation step contains no interactive fields — it is purely informational. You should ensure: (1) screen readers can read all the summary rows (From, To, Amount, Reference), ideally with the row label and value merged into a single semantics node; (2) focus moves appropriately to the beginning of the confirmation content when step 3 becomes active; (3) the Continue (Confirm) button is the only actionable element and is reachable by Tab without traversing through purely decorative elements.
+
+</details>
