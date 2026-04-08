@@ -7,8 +7,433 @@ description: "Widget tests, integration tests, and Lighthouse CI for accessibili
 
 # Test the Web
 
-*Coming soon — this chapter will cover testing accessibility in Flutter web apps.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+You have spent seven chapters making wwwBank accessible. Semantic labels, keyboard navigation, form validation, colour contrast — all of it can silently regress the moment someone refactors a widget, changes a color, or restructures a screen. Testing is the net that catches regressions before your users do.
+
+This chapter covers three layers of testing: unit tests for state logic, widget tests for semantics and responsive behaviour, and Lighthouse CI for automated accessibility audits in your GitHub Actions pipeline. The wwwBank codebase already has tests you can learn from — let's read them, extend them, and run them.
+
+<WwwBankEmbed route="/" height={480} />
+
+---
+
+## Why testing accessibility matters
+
+Screen reader users, keyboard-only users, and users who rely on switch controls all depend on a stable semantic structure. A label that says "Account balance: £4,285.50" today can silently become an empty string tomorrow if a developer wraps the widget in a new parent and forgets to propagate the `Semantics` node. Without a test, nobody notices until a real user complains — or until an automated audit flags it in production.
+
+Accessibility regressions have a compounding cost: they are invisible to sighted developers doing manual QA, they are rarely caught by visual regression tools, and the users most affected are least likely to file bug reports. Automated tests and audits close all three of those gaps.
+
+The good news is that Flutter's test tooling is excellent. Widget tests run in under a second, run on every CI commit, and can assert on the semantic tree just as powerfully as they assert on the visual tree.
+
+---
+
+## Unit tests — AppState
+
+The simplest tests are unit tests for business logic. wwwBank's `AppState` manages login status, tab selection, and the accessible mode toggle. Because it is a plain `ChangeNotifier` with no widget dependencies, it can be tested without any widget infrastructure:
+
+```dart title="test/app_state_test.dart"
+import 'package:flutter_test/flutter_test.dart';
+import 'package:wwwbank/app_state.dart';
+
+void main() {
+  late AppState state;
+
+  setUp(() {
+    state = AppState();
+  });
+
+  group('login/logout', () {
+    test('starts logged out', () {
+      expect(state.isLoggedIn, isFalse);
+    });
+
+    test('logout resets isLoggedIn and currentTab', () {
+      state.login();
+      state.setTab(2);
+      state.logout();
+      expect(state.isLoggedIn, isFalse);
+      expect(state.currentTab, 0);
+    });
+  });
+
+  group('accessible toggle', () {
+    test('toggleAccessible flips the flag', () {
+      state.toggleAccessible();
+      expect(state.accessible, isTrue);
+      state.toggleAccessible();
+      expect(state.accessible, isFalse);
+    });
+  });
+}
+```
+
+There is one subtle but important test here: `setTab to same index does not notify`. This verifies that calling `setTab(0)` when already on tab 0 does not trigger a rebuild. Superfluous `notifyListeners` calls cause unnecessary rebuilds across the tree — a small performance matter for most apps, but a real accessibility issue if those rebuilds reset focus or scroll position mid-interaction.
+
+Run the unit tests with:
+
+```sh
+flutter test test/app_state_test.dart
+```
+
+---
+
+## Widget tests — scaffold responsive behaviour
+
+Widget tests use `tester.pumpWidget` to render a widget tree into a virtual frame and then make assertions on what was rendered. The scaffold test in wwwBank uses `MediaQuery` to simulate different screen widths:
+
+```dart title="test/widgets/wwwbank_scaffold_test.dart"
+Widget buildScaffold({double width = 800}) {
+  return MaterialApp(
+    home: MediaQuery(
+      data: MediaQueryData(size: Size(width, 600)),
+      child: WwwBankScaffold(
+        accessible: true,
+        currentIndex: 0,
+        onTabChanged: (_) {},
+        onToggleAccessible: () {},
+        body: const Text('Content'),
+      ),
+    ),
+  );
+}
+
+testWidgets('shows NavigationRail on wide screens', (tester) async {
+  await tester.pumpWidget(buildScaffold(width: 800));
+  expect(find.byType(NavigationRail), findsOneWidget);
+  expect(find.byType(NavigationBar), findsNothing);
+});
+
+testWidgets('shows NavigationBar on narrow screens', (tester) async {
+  await tester.pumpWidget(buildScaffold(width: 500));
+  expect(find.byType(NavigationBar), findsOneWidget);
+  expect(find.byType(NavigationRail), findsNothing);
+});
+```
+
+The breakpoint in `WwwBankScaffold` is 600 logical pixels — anything at or above that threshold gets `NavigationRail`; anything below gets `NavigationBar`. These tests lock that contract in. If someone changes the breakpoint constant to 700 accidentally, a test fails immediately and the reviewer knows exactly what changed and why.
+
+<div className="wb-callout wb-callout--blue">
+
+**Why this matters for accessibility:** The two navigation patterns have different semantic structures. `NavigationRail` renders as a vertical list of labelled destinations; `NavigationBar` renders as a horizontal bar. Screen readers encounter these differently. Testing that the right one appears at the right breakpoint is not just a layout concern — it is a semantics concern.
+
+</div>
+
+---
+
+## Widget tests — semantics labels with `find.bySemanticsLabel`
+
+Flutter's `find.bySemanticsLabel` lets you search the semantic tree by label rather than the visual tree by text. This is the right tool for asserting that assistive technologies will see what you intend them to see:
+
+```dart
+testWidgets('account card announces balance to screen readers', (tester) async {
+  final handle = tester.ensureSemantics();
+
+  await tester.pumpWidget(
+    const MaterialApp(
+      home: Scaffold(body: DashboardScreen(accessible: true)),
+    ),
+  );
+
+  // This asserts the label exists in the semantics tree
+  expect(
+    find.bySemanticsLabel(RegExp(r'Everyday Checking')),
+    findsOneWidget,
+  );
+
+  handle.dispose();
+});
+```
+
+The `tester.ensureSemantics()` call is important. Flutter normally does not build the full semantic tree in tests — it only does so when a screen reader is active. `ensureSemantics()` forces the semantic tree to be populated, and returns a `SemanticsHandle` that you must dispose at the end of the test.
+
+For richer assertions, use `matchesSemantics` with the `flutter_test` matcher:
+
+```dart
+expect(
+  tester.getSemantics(find.text('Everyday Checking')),
+  matchesSemantics(label: 'Everyday Checking'),
+);
+```
+
+<div className="wb-callout wb-callout--amber">
+
+**Always dispose the SemanticsHandle.** If you call `tester.ensureSemantics()` without disposing the returned handle, the semantic tree stays active for subsequent tests, which can cause unexpected interactions. Use `addTearDown(handle.dispose)` to make disposal automatic even if the test throws.
+
+</div>
+
+---
+
+## Widget tests — router redirects
+
+The router test verifies the auth guard: unauthenticated users are sent to `/login`, and once they log in the router redirects them to `/`. This is a functional correctness test that also has an accessibility dimension — delivering users to the wrong screen means screen reader users and keyboard users are announced the wrong page title and placed in the wrong context.
+
+```dart title="test/router_test.dart"
+testWidgets('redirects to /login when not logged in', (tester) async {
+  final appState = AppState();
+  final router = createRouter(appState);
+
+  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await tester.pumpAndSettle();
+
+  expect(router.routeInformationProvider.value.uri.path, '/login');
+});
+
+testWidgets('redirects to / after login', (tester) async {
+  final appState = AppState();
+  final router = createRouter(appState);
+
+  await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+  await tester.pumpAndSettle();
+
+  appState.login();
+  await tester.pumpAndSettle();
+
+  expect(router.routeInformationProvider.value.uri.path, '/');
+});
+```
+
+`pumpAndSettle` waits for all animations and async operations to complete before making assertions. This is essential for router tests because `go_router`'s redirect mechanism runs asynchronously.
+
+---
+
+## Integration testing for web — flutter test --platform chrome
+
+Widget tests run in a headless Dart VM. Integration tests run inside an actual browser, giving you real web APIs, real layout, real font rendering, and real keyboard event handling. This is the right level for end-to-end accessibility testing.
+
+Create an integration test in `integration_test/`:
+
+```dart title="integration_test/accessibility_test.dart"
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:wwwbank/main.dart' as app;
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('login flow is keyboard navigable', (tester) async {
+    app.main();
+    await tester.pumpAndSettle();
+
+    // Tab to email field
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+
+    // Type an email
+    await tester.enterText(find.byType(TextField).first, 'alex@example.com');
+    await tester.pumpAndSettle();
+
+    // Tab to password
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+
+    // Tab to Sign In button and press it
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    // Should now be on the dashboard
+    expect(find.text('Good morning, Alex'), findsOneWidget);
+  });
+}
+```
+
+Run integration tests against Chrome:
+
+```sh
+flutter test integration_test/ --platform chrome
+```
+
+<div className="wb-callout wb-callout--amber">
+
+**Chrome must be installed.** The `--platform chrome` flag requires a local Chrome installation and the matching `chromedriver`. On CI machines, use the `browser-actions/setup-chrome` GitHub Action or equivalent before running integration tests.
+
+</div>
+
+---
+
+## Lighthouse CI — automated accessibility audits in CI
+
+Lighthouse is Google's open-source tool for measuring web quality. Its accessibility audit scores pages from 0–100 based on axe-core rules that map to WCAG criteria: missing alt text, insufficient contrast, improper heading hierarchy, missing form labels, and dozens more.
+
+[Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci) wraps Lighthouse in a server/client model suitable for CI pipelines. You configure pass/fail thresholds and it fails the build if scores drop.
+
+Install the CLI:
+
+```sh
+npm install -g @lhci/cli
+```
+
+Create `lighthouserc.json` in the project root:
+
+```json title="lighthouserc.json"
+{
+  "ci": {
+    "collect": {
+      "url": ["http://localhost:8080/"],
+      "numberOfRuns": 3
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "categories:accessibility": ["error", { "minScore": 0.9 }],
+        "categories:best-practices": ["warn", { "minScore": 0.9 }]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}
+```
+
+The `minScore: 0.9` threshold means the build fails if Lighthouse's accessibility score drops below 90. Adjust this to match your team's standards — many teams start at 0.85 and tighten over time.
+
+---
+
+## GitHub Actions workflow for accessibility testing
+
+Here is a complete workflow that runs both Flutter widget tests and Lighthouse CI on every pull request:
+
+```yaml title=".github/workflows/accessibility.yml"
+name: Accessibility Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  widget-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.x'
+          channel: 'stable'
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Run widget tests
+        run: flutter test
+
+  lighthouse:
+    runs-on: ubuntu-latest
+    needs: widget-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.x'
+          channel: 'stable'
+      - name: Build Flutter web
+        run: flutter build web --web-renderer html
+      - name: Serve the build
+        run: |
+          npm install -g serve
+          serve build/web -p 8080 &
+          sleep 3
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli
+      - name: Run Lighthouse CI
+        run: lhci autorun
+```
+
+<div className="wb-callout wb-callout--blue">
+
+**Use the HTML renderer for Lighthouse audits.** The CanvasKit renderer renders to `<canvas>`, which Lighthouse cannot analyse for most accessibility rules. The HTML renderer (`--web-renderer html`) generates native DOM elements that axe-core can inspect. Chapter 9 covers the trade-offs in detail — for CI audits, HTML renderer is the right choice even if you ship CanvasKit in production.
+
+</div>
+
+---
+
+## Practical exercise — writing a semantics test for the dashboard
+
+The existing `dashboard_screen_test.dart` tests that account names appear as visual text. Your task is to extend it to verify that the semantic tree exposes those names, so screen readers can announce them:
+
+```dart title="test/screens/dashboard_screen_test.dart (extended)"
+testWidgets('account cards have semantic labels', (tester) async {
+  final handle = tester.ensureSemantics();
+  addTearDown(handle.dispose);
+
+  await tester.pumpWidget(
+    const MaterialApp(
+      home: Scaffold(body: DashboardScreen(accessible: true)),
+    ),
+  );
+
+  // Verify each account name exists in the semantics tree
+  expect(
+    find.bySemanticsLabel(RegExp('Everyday Checking')),
+    findsOneWidget,
+  );
+  expect(
+    find.bySemanticsLabel(RegExp('Savings Goal')),
+    findsOneWidget,
+  );
+  expect(
+    find.bySemanticsLabel(RegExp('Credit Card')),
+    findsOneWidget,
+  );
+});
+```
+
+Run it with `flutter test test/screens/dashboard_screen_test.dart`. If all three accounts appear in the semantics tree, the test passes. If a refactor removes a `Semantics` wrapper or renames an account widget, the test fails — alerting you before any user does.
+
+<div className="wb-callout wb-callout--green">
+
+**Take it further:** Extend the test to assert on the balance values too. A screen reader user should hear "Everyday Checking, £4,285.50" — not just the account name. Consider adding a `Semantics(label: '${account.name}, ${account.formattedBalance}')` wrapper to `_AccountCard` and then testing that the combined label is present.
+
+</div>
+
+---
+
+## What's Next
+
+In **Chapter 9: Ship It**, we build the app for production, explore the CanvasKit versus HTML renderer trade-off, configure the PWA manifest, and deploy to Firebase Hosting. The accessibility work you have done throughout this tutorial only matters if it reaches real users.
+
+→ [Chapter 9: Ship It](/chapters/deploy)
+
+---
+
+## Quiz
+
+**1. What does `tester.ensureSemantics()` do, and why must you call it before using `find.bySemanticsLabel`?**
+
+<details>
+<summary>Show answer</summary>
+
+Flutter normally skips building the full semantic tree in tests because it is expensive and not required unless a screen reader is active. `tester.ensureSemantics()` forces the semantic tree to be populated for the current test. Without it, the semantics tree is empty and `find.bySemanticsLabel` will not find anything. The method returns a `SemanticsHandle` that you must dispose at the end of the test (or via `addTearDown`) to avoid affecting subsequent tests.
+
+</details>
+
+---
+
+**2. Why does the scaffold test wrap the widget in a `MediaQuery` with a specific `size`, rather than relying on the default test frame size?**
+
+<details>
+<summary>Show answer</summary>
+
+The default test frame size in Flutter's widget test environment may not match the breakpoints your layout logic uses. `WwwBankScaffold` switches between `NavigationRail` and `NavigationBar` at 600 logical pixels. By explicitly passing `MediaQueryData(size: Size(800, 600))` or `Size(500, 600)`, the test controls which side of the breakpoint it lands on. Relying on the default frame size would make tests brittle — they could pass or fail depending on the test environment's default dimensions.
+
+</details>
+
+---
+
+**3. Why should you use the HTML renderer (`--web-renderer html`) when running Lighthouse CI, even if you deploy with CanvasKit?**
+
+<details>
+<summary>Show answer</summary>
+
+Lighthouse's accessibility audits rely on axe-core, which analyses the DOM. The CanvasKit renderer draws Flutter's UI to an HTML `<canvas>` element — the visible content is pixels on a canvas, not DOM nodes. Axe-core cannot inspect canvas content for missing labels, colour contrast, or heading structure. The HTML renderer generates native DOM elements (`<flt-semantics>`, `<input>`, etc.) that axe-core can traverse and audit. For CI audit purposes, HTML renderer gives you meaningful, actionable results; CanvasKit gives you mostly empty reports.
+
+</details>
+
+---
+
+**4. The router test uses `pumpAndSettle()` rather than `pump()`. When would using just `pump()` cause the test to fail, and why?**
+
+<details>
+<summary>Show answer</summary>
+
+`pump()` advances the widget tree by exactly one frame. `pumpAndSettle()` repeatedly calls `pump()` until there are no more pending frames, animations, or timers. `go_router`'s redirect mechanism runs asynchronously — the initial route is set, then the redirect fires on the next event loop tick. A single `pump()` call may not give the router enough cycles to complete the redirect and settle on the final route. Using `pump()` alone could result in the test asserting the path before the redirect has fired, which would show the initial route instead of the redirected one. `pumpAndSettle()` ensures all async activity has completed before the assertion runs.
+
+</details>
