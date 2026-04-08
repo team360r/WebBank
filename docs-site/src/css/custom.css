@@ -1,0 +1,82 @@
+:root {
+  --ifm-color-primary: #1565C0;
+  --ifm-color-primary-dark: #1258a8;
+  --ifm-color-primary-darker: #11539e;
+  --ifm-color-primary-darkest: #0e4483;
+  --ifm-color-primary-light: #1872d8;
+  --ifm-color-primary-lighter: #1977e2;
+  --ifm-color-primary-lightest: #2b88f0;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+
+  --wb-amber-bg: #fff8e1;
+  --wb-amber-border: #f9a825;
+  --wb-amber-icon: #f57f17;
+  --wb-blue-bg: #e3f2fd;
+  --wb-blue-border: #42a5f5;
+  --wb-blue-icon: #1565c0;
+  --wb-green-bg: #e8f5e9;
+  --wb-green-border: #66bb6a;
+  --wb-green-icon: #2e7d32;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #5e92f3;
+  --ifm-color-primary-dark: #3d7bf0;
+  --ifm-color-primary-darker: #2d70ef;
+  --ifm-color-primary-darkest: #0c55e0;
+  --ifm-color-primary-light: #7fa9f6;
+  --ifm-color-primary-lighter: #90b4f7;
+  --ifm-color-primary-lightest: #c1d6fb;
+
+  --wb-amber-bg: #332b00;
+  --wb-amber-border: #f9a825;
+  --wb-amber-icon: #fdd835;
+  --wb-blue-bg: #0d1f33;
+  --wb-blue-border: #42a5f5;
+  --wb-blue-icon: #90caf9;
+  --wb-green-bg: #0d260f;
+  --wb-green-border: #66bb6a;
+  --wb-green-icon: #a5d6a7;
+}
+
+.wb-callout {
+  border-left: 4px solid;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+.wb-callout--amber { background: var(--wb-amber-bg); border-color: var(--wb-amber-border); }
+.wb-callout--blue { background: var(--wb-blue-bg); border-color: var(--wb-blue-border); }
+.wb-callout--green { background: var(--wb-green-bg); border-color: var(--wb-green-border); }
+
+.wb-step {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0;
+}
+.wb-step__badge {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ifm-color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+h2 {
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  padding-bottom: 0.3em;
+}
+
+.prism-code {
+  border-left: 3px solid var(--ifm-color-primary);
+}
+
+.sidebar-item--visited {
+  color: var(--wb-green-icon);
+}
