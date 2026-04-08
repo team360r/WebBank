@@ -7,8 +7,383 @@ description: "Adapting a Flutter mobile app for the web platform"
 
 # From Mobile to Web
 
-*Coming soon — this bonus chapter will cover porting the AccessBank mobile app to Flutter web.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+This bonus chapter bridges the two tutorials in this series: [AccessBank](https://accessible.example.com) (the Flutter mobile accessibility tutorial) and wwwBank (this one). If you built AccessBank on mobile and now want to understand how wwwBank was derived from it — or if you are porting your own Flutter mobile app to the web — this chapter is for you.
+
+The short version: the business logic and data layer copied across without changes. The UI needed a new navigation pattern, new layout thinking, and several web-specific APIs. The accessibility work was mostly already done — which is exactly the point.
+
+<WwwBankEmbed route="/" height={480} />
+
+---
+
+## When to adapt vs when to rebuild
+
+The first decision when taking a Flutter mobile app to the web is not technical — it is strategic. There are two broad approaches:
+
+**Adapt:** Keep the same Dart codebase, share as much code as possible, add web-specific code where necessary. This is what wwwBank does — it is the same app, shared models and state, different navigation shell and layout.
+
+**Rebuild:** Start fresh for the web, designed for web interaction patterns from the ground up. This makes sense when the mobile and web experiences are genuinely different products — different audiences, different features, different information architecture.
+
+A useful decision framework:
+
+| Question | Adapt | Rebuild |
+|----------|-------|---------|
+| Same core features? | Yes | No |
+| Same user base? | Yes | No |
+| Similar information architecture? | Yes | No |
+| Mobile-specific interaction patterns? | A few | Many |
+| Web-specific features needed (browser URLs, SEO, etc.)? | Some | Many |
+| Team size and velocity? | Small | Larger |
+
+For wwwBank, the answer was clearly "adapt": same features, same users, same data, just a different shell. The mobile app's `DashboardScreen`, `TransactionsScreen`, `TransferScreen`, and `SettingsScreen` all work on web with zero changes. The only things that changed were navigation, layout breakpoints, routing, and a handful of web-specific integrations.
+
+---
+
+## kIsWeb — detecting the web platform
+
+Flutter provides a top-level constant `kIsWeb` in `package:flutter/foundation.dart` that is `true` when compiled for web and `false` otherwise. Use it for branching that cannot be abstracted behind an interface:
+
+```dart
+import 'package:flutter/foundation.dart';
+
+if (kIsWeb) {
+  // Web-specific code
+} else {
+  // Mobile/desktop code
+}
+```
+
+wwwBank uses `kIsWeb` in `PostMessageBridge` to conditionally register the window message listener:
+
+```dart title="lib/tutorial/postmessage_bridge.dart"
+PostMessageBridge(this._appState, this._navigatorKey) {
+  if (kIsWeb) {
+    platform.listenForMessages(_handleMessage);
+  }
+}
+```
+
+On mobile, this constructor body is a no-op. On web, it registers the listener that allows the tutorial's iframe controller to send navigation and accessibility commands into the app.
+
+<div className="wb-callout wb-callout--amber">
+
+**Prefer abstractions over `kIsWeb` checks in UI code.** Scattering `if (kIsWeb)` throughout your widgets makes code hard to read and test. Prefer platform-adaptive widgets (see below), conditional imports, or service interfaces that have platform-specific implementations. Reserve `kIsWeb` for cases where the branching is genuinely at the infrastructure level, not the UI level.
+
+</div>
+
+---
+
+## Platform-adaptive navigation — NavigationRail vs BottomNavigationBar
+
+The clearest example of platform adaptation in wwwBank is the navigation shell. The mobile AccessBank app uses `BottomNavigationBar` — a horizontal strip of tabs at the bottom of the screen, optimised for thumb reach on phones. wwwBank's `WwwBankScaffold` uses the same component on narrow screens, but switches to `NavigationRail` on wider screens:
+
+```dart title="lib/widgets/wwwbank_scaffold.dart"
+const double _breakpoint = 600;
+
+@override
+Widget build(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  final isWide = width >= _breakpoint;
+
+  return Scaffold(
+    // ...
+    body: isWide
+        ? Row(
+            children: [
+              NavigationRail(
+                selectedIndex: currentIndex,
+                onDestinationSelected: onTabChanged,
+                labelType: NavigationRailLabelType.all,
+                destinations: /* ... */,
+              ),
+              const VerticalDivider(thickness: 1, width: 1),
+              Expanded(child: body),
+            ],
+          )
+        : body,
+    bottomNavigationBar: isWide
+        ? null
+        : NavigationBar(
+            selectedIndex: currentIndex,
+            onDestinationSelected: onTabChanged,
+            destinations: /* ... */,
+          ),
+  );
+}
+```
+
+The breakpoint is 600 logical pixels. On a phone in portrait mode (typically 360–430dp wide), the bottom bar appears. On a tablet, laptop, or desktop browser, the rail appears on the left. The same destinations list powers both — only the visual presentation differs.
+
+This pattern is not just good UX — it is good accessibility. `NavigationRail` announces as a vertical navigation landmark in screen readers; `NavigationBar` announces as a tab bar. Each matches the expectation of users on that platform.
+
+---
+
+## Sharing business logic — models, state, and data layers
+
+The cleanest part of porting AccessBank to wwwBank was everything that did not need to change. The entire `lib/data/` directory is identical between the two apps:
+
+- `models/account.dart` — `Account`, `AccountType`
+- `models/transaction.dart` — `Transaction`
+- `models/user.dart` — `User`
+- `mock_accounts.dart` — `MockAccounts.all`, `MockAccounts.currentUser`
+- `mock_transactions.dart` — `MockTransactions.all`
+
+`AppState` is also shared verbatim — it is a `ChangeNotifier` with no platform dependencies. The same `login()`, `logout()`, `setTab()`, and `toggleAccessible()` methods work identically on mobile and web.
+
+This is one of Flutter's strongest value propositions: you write your business logic once and it runs everywhere. When you port a mobile app to web, start by identifying what is truly platform-agnostic — models, state management, services, validation logic, data formatting — and move it into a shared package or simply verify it already compiles on all platforms.
+
+---
+
+## Web-specific API differences — conditional imports
+
+Some capabilities simply do not exist on one platform or the other. `dart:io` (file system, processes, sockets) is not available on web. The web platform API (`package:web`, `dart:js_interop`) is not available on mobile. The conventional solution is the **conditional import / stub pattern**.
+
+wwwBank uses this pattern for the PostMessage bridge — a web-only feature that lets the tutorial iframe communicate with the app:
+
+```dart title="lib/tutorial/postmessage_bridge.dart"
+// Only import web libraries when running on web
+import 'postmessage_bridge_stub.dart'
+    if (dart.library.js_interop) 'postmessage_bridge_web.dart' as platform;
+```
+
+The condition `dart.library.js_interop` evaluates to true only when the `dart:js_interop` library is available — i.e., only on web. On mobile and desktop, the stub is imported instead.
+
+The stub contains no-op implementations of the same function signatures:
+
+```dart title="lib/tutorial/postmessage_bridge_stub.dart"
+void listenForMessages(
+  void Function(String type, Map<String, dynamic> payload) handler,
+) {
+  // No-op on non-web platforms
+}
+
+void stopListening() {
+  // No-op on non-web platforms
+}
+```
+
+The web implementation uses `package:web` and `dart:js_interop`:
+
+```dart title="lib/tutorial/postmessage_bridge_web.dart"
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
+
+void listenForMessages(
+  void Function(String type, Map<String, dynamic> payload) handler,
+) {
+  // registers window.addEventListener('message', ...)
+}
+```
+
+<div className="wb-callout wb-callout--blue">
+
+**Use `package:web` not `dart:html`.** The older `dart:html` library has been deprecated in favour of `package:web`, which uses `dart:js_interop` for type-safe JavaScript interop. New code targeting Flutter web should use `package:web` exclusively. The `dart.library.js_interop` condition in the import is the correct way to guard web-only code.
+
+</div>
+
+---
+
+## Mouse and hover interactions
+
+Web users have mice. Mobile users do not. This creates a category of interaction that mobile apps never need to think about: hover states.
+
+Flutter's `MouseRegion` widget detects when a pointer enters, exits, or moves over a widget. Material 3 components handle this automatically — buttons, list tiles, and chips show the correct hover overlay out of the box. For custom interactive widgets, you need to handle it yourself:
+
+```dart
+MouseRegion(
+  cursor: SystemMouseCursors.click,
+  onEnter: (_) => setState(() => _hovered = true),
+  onExit: (_) => setState(() => _hovered = false),
+  child: AnimatedContainer(
+    duration: const Duration(milliseconds: 150),
+    color: _hovered ? Colors.blue.withOpacity(0.08) : Colors.transparent,
+    child: child,
+  ),
+)
+```
+
+The `cursor` property is important for accessibility: it communicates affordance. `SystemMouseCursors.click` (the hand pointer) tells the user the element is clickable. `SystemMouseCursors.text` signals an editable text field. Using the wrong cursor, or no cursor at all, makes interactive elements harder to discover.
+
+On mobile, `MouseRegion` is silently ignored — it has no cost on platforms without a pointer.
+
+---
+
+## URL-based navigation
+
+On web, the URL is the primary navigation primitive. Users bookmark URLs, share them, open them in new tabs, and hit the browser Back button. None of this exists on mobile.
+
+wwwBank uses `go_router` for URL-based navigation, which it shares conceptually with AccessBank's navigation stack but not structurally. The key differences:
+
+- Mobile apps navigate with `push` and `pop` (a stack). Web apps navigate with `go` (replacing state) or `push` (adding to browser history).
+- Web URLs must be meaningful: `/dashboard`, `/transfer`, `/settings` rather than opaque identifiers.
+- The browser's Back button triggers `go_router`'s `pop` — no special handling needed.
+- Deep links (opening the app at a specific URL) work automatically because the URL is always present.
+
+A useful habit: define your route paths as constants early, before you build any UI, because changing URLs later breaks bookmarks and shared links:
+
+```dart
+abstract class AppRoutes {
+  static const login = '/login';
+  static const dashboard = '/';
+  static const transactions = '/transactions';
+  static const transfer = '/transfer';
+  static const settings = '/settings';
+}
+```
+
+---
+
+## Responsive layout considerations
+
+Phones are narrow and almost always portrait. Laptops are wide and landscape. Tablets are somewhere in between and can be either. The web adds an entirely new dimension: browser window resize.
+
+Mobile layout code frequently assumes a fixed-width, single-column layout. That assumption breaks immediately on web. wwwBank's `_AccountCardsGrid` in the dashboard handles this correctly:
+
+```dart
+LayoutBuilder(
+  builder: (context, constraints) {
+    final crossAxisCount = constraints.maxWidth > 600 ? 3 : 1;
+    return GridView.builder(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        // ...
+      ),
+      // ...
+    );
+  },
+)
+```
+
+When porting, audit every screen for:
+
+- Hardcoded widths that overflow on desktop
+- Single-column layouts that waste space on wide screens
+- Fixed heights on containers that hold text (break when text scales)
+- `Column` widgets that don't handle overflow (use `SingleChildScrollView`)
+
+---
+
+## What NOT to share
+
+Some things should stay platform-specific:
+
+- **Platform-specific plugins.** `camera`, `geolocator`, `biometric_storage`, and similar plugins have web implementations of varying quality. Audit each plugin's web support before relying on it.
+- **Navigation shell.** As shown above, `BottomNavigationBar` is the right mobile pattern; `NavigationRail` or a `Drawer` is the right web pattern. Don't share the shell widget — share the content widgets it wraps.
+- **Platform-specific UX patterns.** Pull-to-refresh feels wrong on desktop web. Native date pickers look out of place in browsers. Context menus on right-click are expected on desktop, alien on mobile. Accept platform conventions rather than fighting them.
+- **Image and asset sizes.** Mobile typically uses 2× or 3× assets for retina screens. Web uses SVGs or appropriately sized rasters. Sharing a mobile asset bundle means shipping oversized images to web users.
+
+---
+
+## Practical checklist for porting a Flutter mobile app to web
+
+Before starting:
+- [ ] Audit all plugins for web support (`flutter pub deps` + check each plugin's pub.dev page)
+- [ ] Identify platform-specific code (`dart:io` imports, platform checks)
+- [ ] Run `flutter build web` and see what breaks
+
+Architecture:
+- [ ] Move models, state, and business logic to shared code
+- [ ] Create conditional import stubs for any web-only APIs
+- [ ] Replace `dart:html` with `package:web`
+- [ ] Replace `dart:io` usage with `universal_io` or platform-conditional stubs
+
+Navigation:
+- [ ] Integrate `go_router` with meaningful URL paths
+- [ ] Add auth redirect guards
+- [ ] Test the browser Back button and deep linking
+
+Layout:
+- [ ] Add `LayoutBuilder` or `MediaQuery` breakpoints to all screens
+- [ ] Swap `BottomNavigationBar` for `NavigationRail` on wide screens
+- [ ] Test every screen at 320px, 600px, 900px, and 1400px wide
+- [ ] Verify text does not overflow at 1.5× and 2× text scale
+
+Accessibility:
+- [ ] Run Lighthouse on the web build
+- [ ] Test keyboard navigation on every screen
+- [ ] Test with VoiceOver (macOS/iOS) and NVDA (Windows)
+- [ ] Verify focus management on route transitions
+
+Deployment:
+- [ ] Configure SPA rewrites in hosting config
+- [ ] Update `web/manifest.json` with production name, colours, and icons
+- [ ] Test PWA install on Android Chrome and iOS Safari
+- [ ] Set `--base-href` if deploying to a subdirectory
+
+---
+
+## Congratulations
+
+You have reached the end of the wwwBank Flutter web accessibility tutorial. Over ten chapters, you built and explored a fully accessible, responsive, keyboard-navigable banking web app — from the first `flutter create` to a production deployment.
+
+Here is what you learned:
+
+- **Responsive design** with `MediaQuery`, `LayoutBuilder`, and `NavigationRail`
+- **URL-based routing** with `go_router` and auth redirect guards
+- **Semantic accessibility** with `Semantics`, `MergeSemantics`, and `ExcludeSemantics`
+- **Keyboard navigation** with focus management, shortcuts, and tab order
+- **Accessible forms** with proper labels, errors, and validation
+- **Visual accessibility** with WCAG contrast ratios, text scaling, reduced motion, and dark mode
+- **Testing** with widget tests, semantics assertions, and Lighthouse CI
+- **Deployment** with PWA configuration and web hosting
+
+The accessible version of wwwBank is not harder to use than the inaccessible one — it is better for everyone. High contrast text is easier to read in bright sunlight. Keyboard navigation is faster for power users. Semantic labels help search engines as much as they help screen readers. Accessibility is quality.
+
+<div className="wb-callout wb-callout--green">
+
+**What's next:** Return to the accessible/inaccessible toggle in the app embed above, and look at it with fresh eyes. Every difference you see — label clarity, colour contrast, focus indicators, error messages — represents a real user whose experience is improved or degraded by those choices. You now have the knowledge and the tools to make the right choices every time.
+
+</div>
+
+---
+
+## Quiz
+
+**1. What is the `kIsWeb` constant, where does it come from, and when is it appropriate to use it?**
+
+<details>
+<summary>Show answer</summary>
+
+`kIsWeb` is a compile-time constant in `package:flutter/foundation.dart` that is `true` when the app is compiled for the web platform and `false` otherwise. Because it is a compile-time constant, the Dart compiler can tree-shake branches that are unreachable on a given platform. It is appropriate to use when branching at the infrastructure or service level — for example, conditionally registering a web-only listener, or choosing between a web API and a mobile API. It is not ideal for UI-level branching; prefer adaptive widgets or responsive layout for visual differences.
+
+</details>
+
+---
+
+**2. Explain the conditional import / stub pattern used by `postmessage_bridge.dart`. What problem does it solve, and what would happen without it?**
+
+<details>
+<summary>Show answer</summary>
+
+The pattern uses Dart's `import ... if (dart.library.X)` syntax to select between two implementations at compile time. On web, `dart.library.js_interop` is available, so `postmessage_bridge_web.dart` is imported. On non-web platforms, `postmessage_bridge_stub.dart` is imported instead. The stub provides the same function signatures with no-op bodies.
+
+Without this pattern, you could not reference web-only APIs (`package:web`, `dart:js_interop`) in a codebase that also compiles for mobile — the compiler would fail on mobile because those libraries do not exist. The stub pattern gives the non-web compiler something valid to compile against while keeping the web implementation separate and fully functional.
+
+</details>
+
+---
+
+**3. Why does `NavigationRail` appear on wide screens and `NavigationBar` on narrow screens in wwwBank, rather than using `NavigationBar` everywhere (as a mobile app would)?**
+
+<details>
+<summary>Show answer</summary>
+
+The choice reflects platform conventions and ergonomics. On narrow screens (phones, narrow browser windows), `NavigationBar` at the bottom is thumb-friendly and matches user expectations from mobile apps. On wide screens (tablets, desktops, wide browser windows), a bottom bar wastes horizontal space and forces the eye to travel to the bottom of a tall viewport for navigation. `NavigationRail` on the left side matches web and desktop application conventions (sidebar navigation), makes better use of the available width, and keeps navigation visible at all times without occupying valuable vertical space. It also has a different semantic structure — screen readers announce it as a landmark navigation element, which matches the mental model of "navigation sidebar" on desktop.
+
+</details>
+
+---
+
+**4. Name three things you should NOT share between a Flutter mobile app and its web port, and explain why each should remain platform-specific.**
+
+<details>
+<summary>Show answer</summary>
+
+**Navigation shell:** `BottomNavigationBar` is a mobile pattern; `NavigationRail` or a drawer-based nav is the web/desktop pattern. Sharing the shell means either the mobile UX feels like a website or the web UX feels like a mobile app — neither is optimal.
+
+**Platform-specific plugins:** Plugins like `camera`, `geolocator`, and `biometric_storage` either have no web implementation or have partial implementations. Sharing them without checking web support can cause runtime failures or degraded functionality on web.
+
+**Platform-specific UX interactions:** Pull-to-refresh, bottom sheets as primary navigation, and native platform date/time pickers are mobile conventions that feel out of place in a web browser. Web users expect browser-native interactions, right-click context menus, and URL-based state. Forcing mobile patterns onto web creates friction and fails user expectations on both platforms.
+
+</details>
