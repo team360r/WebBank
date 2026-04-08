@@ -7,8 +7,293 @@ description: "Contrast ratios, text scaling, reduced motion, and dark mode"
 
 # See It Clearly
 
-*Coming soon — this chapter will cover visual accessibility for the web.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+Accessibility is not only about screen readers. Approximately 8% of men and 0.5% of women have some form of colour vision deficiency. Millions more have low vision that makes small or low-contrast text difficult to read. Users who are sensitive to motion — whether due to vestibular disorders, migraines, or personal preference — need animations they can turn off. Older users, and users on lower-quality displays, benefit from larger text and higher contrast.
+
+The good news is that Flutter gives you direct access to the system signals that users configure in their OS accessibility settings. `MediaQuery` exposes high contrast mode, text scale factor, animation preferences, and platform brightness. Responding to these signals is not extra work — it is respecting the choices your users have already made.
+
+<WwwBankEmbed route="/" height={480} />
+
+---
+
+## WCAG contrast ratios
+
+The Web Content Accessibility Guidelines define minimum contrast ratios between text and its background:
+
+| Text type | Minimum ratio | WCAG level |
+|---|---|---|
+| Normal text (below 18pt / 14pt bold) | 4.5:1 | AA |
+| Large text (18pt+ / 14pt+ bold) | 3:1 | AA |
+| UI components and graphical elements | 3:1 | AA |
+| Normal text | 7:1 | AAA |
+
+The contrast ratio is calculated from the relative luminance of two colours — a value between 1:1 (identical colours, no contrast) and 21:1 (black on white, maximum contrast). You don't need to calculate this by hand: Chrome DevTools, the Colour Contrast Analyser, and online tools all do it for you.
+
+<div className="wb-callout wb-callout--amber">
+
+**4.5:1 is the floor, not the target.** Designing to exactly 4.5:1 means your text fails for users on slightly miscalibrated displays or in bright sunlight on a mobile screen. Aim for 6:1 or higher for body text whenever your design allows it. wwwBank's accessible palette is designed with this margin built in.
+
+</div>
+
+---
+
+## AppColors — two palettes, two stories
+
+wwwBank ships two colour palettes in `lib/theme/app_colors.dart`. The difference between them is stark:
+
+```dart
+class AppColors {
+  // Accessible palette (WCAG AA compliant)
+  static const Color primary = Color(0xFF1565C0);      // dark blue
+  static const Color textPrimary = Color(0xFF121212);  // near-black
+  static const Color textSecondary = Color(0xFF555555); // dark grey
+  static const Color error = Color(0xFFB00020);         // dark red
+  static const Color success = Color(0xFF2E7D32);       // dark green
+  static const Color warning = Color(0xFFE65100);       // dark orange
+
+  // Inaccessible palette (intentionally bad — for tutorial "before" state)
+  static const inaccessible = _InaccessiblePalette();
+}
+
+final class _InaccessiblePalette {
+  Color get textOnWhite => const Color(0xFFCCCCCC);         // light grey
+  Color get lightBlueOnWhite => const Color(0xFF90CAF9);    // light blue
+  Color get subtleSurface => const Color(0xFFF5F5F5);       // near-white
+  Color get labelOnSubtleSurface => const Color(0xFFBDBDBD); // light grey
+  Color get paleGreenOnWhite => const Color(0xFFA5D6A7);    // pale green
+  Color get washedOrangeOnWhite => const Color(0xFFFFCC80); // pale orange
+}
+```
+
+Let's calculate some ratios:
+
+| Foreground | Background | Ratio | Result |
+|---|---|---|---|
+| `#121212` (textPrimary) | `#FFFFFF` (surface) | **16.1:1** | Passes AAA |
+| `#555555` (textSecondary) | `#FFFFFF` (surface) | **7.4:1** | Passes AAA |
+| `#1565C0` (primary) | `#FFFFFF` (surface) | **7.0:1** | Passes AAA |
+| `#CCCCCC` (inaccessible textOnWhite) | `#FFFFFF` (surface) | **1.6:1** | **FAILS AA** |
+| `#90CAF9` (lightBlueOnWhite) | `#FFFFFF` (surface) | **2.0:1** | **FAILS AA** |
+| `#BDBDBD` (labelOnSubtleSurface) | `#F5F5F5` (subtleSurface) | **1.6:1** | **FAILS AA** |
+
+The inaccessible palette isn't subtle — it's dramatically, obviously broken. That's intentional. Toggle the accessibility mode button in the app embed above and watch the UI shift. The "before" state demonstrates the kind of errors that make web accessibility auditors wince.
+
+---
+
+## MediaQuery.highContrastOf — responding to system high contrast
+
+macOS, Windows, iOS, and Android all have a system-level high contrast mode. When enabled, it signals to applications that the user needs maximum contrast — no translucent surfaces, no subtle colour distinctions, no shadows that reduce legibility.
+
+Flutter exposes this through `MediaQuery`:
+
+```dart
+Widget build(BuildContext context) {
+  final highContrast = MediaQuery.highContrastOf(context);
+
+  return Text(
+    account.name,
+    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: highContrast
+          ? Colors.black // guaranteed maximum contrast
+          : AppColors.textSecondary, // 7.4:1, still excellent
+    ),
+  );
+}
+```
+
+For most apps, a simpler approach is to define a high-contrast `ThemeData` and swap it in at the `MaterialApp` level:
+
+```dart
+MaterialApp.router(
+  theme: AppTheme.lightTheme,
+  darkTheme: AppTheme.darkTheme,
+  highContrastTheme: AppTheme.highContrastLightTheme,
+  highContrastDarkTheme: AppTheme.highContrastDarkTheme,
+  routerConfig: _router,
+)
+```
+
+The `highContrastTheme` is applied automatically when the OS reports high contrast mode. Define it with `Colors.black` on `Colors.white` for text, solid (non-translucent) backgrounds, and thicker borders.
+
+<div className="wb-callout wb-callout--blue">
+
+**Test on macOS:** Go to System Settings → Accessibility → Display → Increase Contrast. Flutter web running in Chrome will immediately receive the updated `MediaQuery` values — no restart required. The app should look clearly different in high contrast mode, with stronger borders and no subtle colour gradations.
+
+</div>
+
+---
+
+## Text scaling — respecting the user's font size
+
+Users configure their preferred text size at the OS level. Flutter reads this through `MediaQuery.textScaleFactorOf(context)` (or `MediaQuery.textScalerOf` in Flutter 3.12+), which returns a multiplier: 1.0 is the default, 1.5 means the user wants 50% larger text, 2.0 means double.
+
+Flutter's `Text` widget respects text scale automatically — any text size specified in `sp` (scale-independent pixels, the default for Flutter text sizes) scales with the user's preference. The issue arises when you:
+
+- Hardcode pixel sizes for containers that hold text, causing text to overflow
+- Use `textScaleFactor: 1.0` to lock text to a specific size (this breaks accessibility)
+- Set `maxLines` without also providing `overflow: TextOverflow.ellipsis` and tooltip fallback
+
+wwwBank's theme defines minimum text sizes of 14sp across all body text styles:
+
+```dart
+static TextTheme _buildTextTheme(Brightness brightness) {
+  return TextTheme(
+    bodySmall: TextStyle(fontSize: 14, ...),    // minimum for readability
+    bodyMedium: TextStyle(fontSize: 14, ...),
+    labelSmall: TextStyle(fontSize: 14, ...),
+    labelMedium: TextStyle(fontSize: 14, ...),
+    // ...
+  );
+}
+```
+
+The 14sp minimum matters because WCAG defines "large text" as 18pt (24px at 96dpi) or 14pt bold (approximately 18.67px). Text below 14sp — even at normal scale — is "normal text" and requires the 4.5:1 contrast ratio. Using 14sp as the floor keeps the math simple and the contrast requirements consistent.
+
+<div className="wb-callout wb-callout--amber">
+
+**Never lock text scale to 1.0.** Some developers do this to prevent layout overflow in fixed-size containers: `MediaQuery(data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0), child: ...)`. This is a WCAG violation (SC 1.4.4: Resize Text) and breaks the user's accessibility settings. Fix the container instead — use `Flexible`, `Expanded`, or remove fixed heights.
+
+</div>
+
+---
+
+## Reduced motion — prefers-reduced-motion
+
+Users with vestibular disorders, epilepsy, or motion sensitivity configure "Reduce Motion" in their OS settings. On the web, this is also exposed as the CSS media query `prefers-reduced-motion`. Flutter exposes the same signal:
+
+```dart
+Widget build(BuildContext context) {
+  final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+  return AnimatedSwitcher(
+    duration: reduceMotion
+        ? Duration.zero          // no animation at all
+        : const Duration(milliseconds: 300),
+    child: currentWidget,
+  );
+}
+```
+
+The same flag applies to page transitions, loading animations, and any decorative motion. A safe rule of thumb: anything that moves for more than 250ms, loops, or spans a large portion of the screen should be disabled or replaced with a simple fade when `disableAnimationsOf` returns `true`.
+
+For wwwBank's route transitions (managed by `go_router`), you can customise the transition builder:
+
+```dart
+GoRoute(
+  path: '/transfer',
+  pageBuilder: (context, state) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return CustomTransitionPage(
+      child: const TransferScreen(),
+      transitionDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 300),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+    );
+  },
+)
+```
+
+---
+
+## Dark mode — theme system support
+
+The `MaterialApp.router` in `lib/app.dart` already declares both `theme` and `darkTheme`:
+
+```dart
+MaterialApp.router(
+  title: 'wwwBank',
+  theme: AppTheme.lightTheme,
+  darkTheme: AppTheme.darkTheme,
+  routerConfig: _router,
+)
+```
+
+Flutter automatically switches between them based on the OS brightness preference (`Brightness.light` vs `Brightness.dark`). The `AppTheme.darkTheme` uses `AppColors.primaryLight` (`#5E92F3`) instead of `#1565C0` for the primary colour — because dark blue on a dark surface would fail the contrast ratio check, while light blue on a dark surface passes.
+
+This is the key insight about dark mode: it is not simply an inverted palette. Text and icon colours need to be lighter in dark mode, but the contrast ratios still need to be verified independently. Run a contrast check against your dark surface colour (`ColorScheme.fromSeed` with `brightness: Brightness.dark` typically generates a dark surface near `#1C1B1F`).
+
+---
+
+## Testing contrast with Chrome DevTools
+
+Chrome DevTools has built-in contrast checking tools:
+
+1. **Element inspection:** Click on any text element in the Elements panel. Expand the `color` property in Styles — Chrome shows the contrast ratio inline, with AA/AAA pass/fail indicators.
+2. **CSS Overview (Experimental):** Open DevTools → More tools → CSS Overview → Capture overview. The Colors section lists all colour combinations used on the page with their contrast ratios.
+3. **Accessibility tree:** DevTools → Accessibility panel shows the computed role, name, and state of the focused element. This is useful for verifying that colour information is not the only means of conveying state (WCAG SC 1.4.1).
+
+For Flutter web specifically, remember that the visible text is on the canvas — Chrome's contrast checker reads CSS text colours, which are not present in the Flutter canvas. You need to either test the `<flt-semantics>` overlay text colours, or use a standalone contrast checker (Colour Contrast Analyser by TPGi is free and excellent) to verify the specific hex values from `AppColors`.
+
+---
+
+## Practical exercise — comparing the palettes
+
+1. Open the app embed at the top of this chapter.
+2. Click the accessibility toggle button (the person icon in the app bar).
+3. Compare the account balance cards, transaction list, and navigation items in accessible vs. inaccessible mode.
+4. In inaccessible mode, open Chrome DevTools and click on one of the balance figures. Find the text colour in the Styles panel and run it through the contrast checker against the white card background.
+5. Switch to accessible mode and check the same element. Note the ratio difference.
+
+<div className="wb-callout wb-callout--green">
+
+**Expected findings:** In inaccessible mode, secondary text uses `#CCCCCC` on `#FFFFFF` — a ratio of approximately 1.6:1, dramatically below the 4.5:1 AA requirement. In accessible mode, the same text uses `#555555` on `#FFFFFF` — a ratio of 7.4:1, comfortably passing AAA. The visual difference is immediately perceptible, especially on a mobile screen in daylight.
+
+</div>
+
+---
+
+## What's Next
+
+In **Chapter 8: Testing & Auditing**, we put everything together — running automated accessibility audits with axe-core, manual screen reader testing with VoiceOver and NVDA, and building an accessibility checklist for wwwBank. You'll learn how to integrate these checks into a CI pipeline so regressions don't slip through.
+
+→ Chapter 8: Testing & Auditing *(coming soon)*
+
+---
+
+## Quiz
+
+**1. What contrast ratio does WCAG AA require for normal body text, and what is the ratio for large text?**
+
+<details>
+<summary>Show answer</summary>
+
+WCAG AA requires a contrast ratio of at least **4.5:1** for normal text (below 18pt regular or 14pt bold) and **3:1** for large text (18pt or larger regular, or 14pt or larger bold). These thresholds apply to text against its background colour. UI components and graphical elements also require 3:1 contrast under WCAG AA SC 1.4.11 (Non-text Contrast).
+
+</details>
+
+---
+
+**2. Why does wwwBank's dark theme use `AppColors.primaryLight` (`#5E92F3`) instead of the same `AppColors.primary` (`#1565C0`) used in the light theme?**
+
+<details>
+<summary>Show answer</summary>
+
+`#1565C0` (dark blue) has good contrast against a white or light background but poor contrast against a dark background — the luminance values are too similar. In dark mode, the surface colour is near-black (`~#1C1B1F`), so primary UI elements need to be lighter to achieve sufficient contrast. `#5E92F3` (light blue) achieves the required contrast ratio against a dark surface. Dark mode requires independently verified contrast ratios — it is not simply an inverted palette.
+
+</details>
+
+---
+
+**3. A user reports that animations in wwwBank make them feel dizzy. What Flutter API should you check first, and how would you respond to it?**
+
+<details>
+<summary>Show answer</summary>
+
+Check `MediaQuery.disableAnimationsOf(context)`. This returns `true` when the user has enabled "Reduce Motion" in their OS accessibility settings (or has set `prefers-reduced-motion: reduce` in their browser). Respond by setting animation durations to `Duration.zero` (removing motion entirely) or replacing motion-heavy transitions with simple fades. The response should apply to all animations that move elements across more than a small distance or that loop — not just to decorative animations.
+
+</details>
+
+---
+
+**4. Why does Chrome DevTools' built-in contrast checker not directly report the contrast ratios of text rendered inside a Flutter web app?**
+
+<details>
+<summary>Show answer</summary>
+
+Flutter renders its UI to an HTML `<canvas>` element. The visible text is drawn as pixels on the canvas — there are no CSS `color` properties for Chrome to read. Chrome's contrast checker analyses CSS computed styles, which are not present for canvas-rendered content. To check contrast, you need to either use the text colours from `AppColors` directly in a standalone contrast tool (such as TPGi's Colour Contrast Analyser), or inspect the `<flt-semantics>` overlay in the Elements panel, which does contain some CSS properties. The most reliable approach is to document your colour palette's contrast ratios during design rather than relying on browser tools after the fact.
+
+</details>
