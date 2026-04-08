@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Semantics"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: The Semantics Web
+
+<Quiz chapterId="ch04">
+  <QuizQuestion
+    question="How does Flutter expose widget semantics to web browsers?"
+    options={[
+      "Through CSS classes",
+      "By generating ARIA attributes in the DOM",
+      "Via JavaScript event handlers",
+      "Through meta tags"
+    ]}
+    correctIndex={1}
+    explanation="Flutter's web renderer generates ARIA attributes in the DOM tree, making the semantics tree accessible to screen readers."
+  />
+</Quiz>

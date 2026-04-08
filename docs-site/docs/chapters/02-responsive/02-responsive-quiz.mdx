@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Think Responsive"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: Think Responsive
+
+<Quiz chapterId="ch02">
+  <QuizQuestion
+    question="Which widget provides layout constraints based on the parent's size?"
+    options={[
+      "MediaQuery",
+      "LayoutBuilder",
+      "FractionallySizedBox",
+      "AspectRatio"
+    ]}
+    correctIndex={1}
+    explanation="LayoutBuilder provides BoxConstraints from the parent, letting you build different layouts based on available space."
+  />
+</Quiz>

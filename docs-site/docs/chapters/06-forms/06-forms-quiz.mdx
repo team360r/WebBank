@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Forms"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: Forms That Work
+
+<Quiz chapterId="ch06">
+  <QuizQuestion
+    question="What Flutter property enables browser autofill for form fields?"
+    options={[
+      "autovalidateMode",
+      "autofillHints",
+      "autocorrect",
+      "autofocus"
+    ]}
+    correctIndex={1}
+    explanation="The autofillHints property on TextFormField tells the browser what kind of data the field expects, enabling autofill suggestions."
+  />
+</Quiz>

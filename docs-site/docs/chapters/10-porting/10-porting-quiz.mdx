@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Porting"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: From Mobile to Web
+
+<Quiz chapterId="ch10">
+  <QuizQuestion
+    question="Which constant lets you detect if your Flutter app is running on the web?"
+    options={[
+      "Platform.isWeb",
+      "kIsWeb",
+      "defaultTargetPlatform == web",
+      "Foundation.isWeb"
+    ]}
+    correctIndex={1}
+    explanation="The kIsWeb constant from dart:core is true when the app is compiled for and running on the web platform."
+  />
+</Quiz>

@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Your Web Toolkit"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: Your Web Toolkit
+
+<Quiz chapterId="ch00">
+  <QuizQuestion
+    question="Which browser tool is best for auditing web accessibility?"
+    options={[
+      "Network tab",
+      "Lighthouse",
+      "Console",
+      "Sources panel"
+    ]}
+    correctIndex={1}
+    explanation="Lighthouse includes built-in accessibility audits based on axe-core rules."
+  />
+</Quiz>

@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Routing"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: Every Page Has an Address
+
+<Quiz chapterId="ch03">
+  <QuizQuestion
+    question="What does go_router's ShellRoute provide?"
+    options={[
+      "Authentication guards",
+      "A persistent UI shell around child routes",
+      "URL parameter parsing",
+      "Page transition animations"
+    ]}
+    correctIndex={1}
+    explanation="ShellRoute wraps child routes in a persistent scaffold, keeping navigation elements visible while the content area changes."
+  />
+</Quiz>

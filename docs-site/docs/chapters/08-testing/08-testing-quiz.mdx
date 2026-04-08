@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Testing"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: Test the Web
+
+<Quiz chapterId="ch08">
+  <QuizQuestion
+    question="Which Flutter test finder locates widgets by their semantic label?"
+    options={[
+      "find.byKey",
+      "find.byType",
+      "find.bySemanticsLabel",
+      "find.byTooltip"
+    ]}
+    correctIndex={2}
+    explanation="find.bySemanticsLabel matches widgets based on their Semantics label, testing the same property screen readers use."
+  />
+</Quiz>

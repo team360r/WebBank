@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Deployment"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: Ship It
+
+<Quiz chapterId="ch09">
+  <QuizQuestion
+    question="Which Flutter web renderer provides better accessibility support?"
+    options={[
+      "CanvasKit",
+      "HTML renderer",
+      "Skia",
+      "WebGL"
+    ]}
+    correctIndex={1}
+    explanation="The HTML renderer generates native DOM elements that screen readers can directly interact with, while CanvasKit draws to a canvas."
+  />
+</Quiz>

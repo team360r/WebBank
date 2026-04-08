@@ -1,0 +1,23 @@
+---
+sidebar_position: 2
+title: "Quiz: Hello wwwBank"
+---
+
+import Quiz from '@site/src/components/Quiz/Quiz';
+import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
+
+# Quiz: Hello wwwBank
+
+<Quiz chapterId="ch01">
+  <QuizQuestion
+    question="Which Flutter widget provides a vertical navigation rail for desktop layouts?"
+    options={[
+      "BottomNavigationBar",
+      "Drawer",
+      "NavigationRail",
+      "TabBar"
+    ]}
+    correctIndex={2}
+    explanation="NavigationRail is designed for desktop and tablet layouts, providing vertical navigation alongside the main content."
+  />
+</Quiz>
