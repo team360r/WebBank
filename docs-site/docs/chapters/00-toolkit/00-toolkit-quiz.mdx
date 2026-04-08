@@ -20,4 +20,37 @@ import QuizQuestion from '@site/src/components/Quiz/QuizQuestion';
     correctIndex={1}
     explanation="Lighthouse includes built-in accessibility audits based on axe-core rules."
   />
+  <QuizQuestion
+    question="What does the Accessibility panel in Chrome DevTools show you?"
+    options={[
+      "The CSS styles applied to each element",
+      "Network requests made by the page",
+      "The accessibility tree with roles, names, and properties",
+      "JavaScript memory usage"
+    ]}
+    correctIndex={2}
+    explanation="The Accessibility panel exposes the accessibility tree — the parallel representation of the DOM that screen readers navigate. Each node shows its role, computed name, description, and state properties."
+  />
+  <QuizQuestion
+    question="A Lighthouse accessibility score of 100 means your app is fully accessible. True or false?"
+    options={[
+      "True — 100 is the maximum and means no issues",
+      "False — automated checks only catch roughly 30–40% of real accessibility problems",
+      "True — Lighthouse checks every WCAG 2.1 criterion",
+      "False — Lighthouse only checks colour contrast, nothing else"
+    ]}
+    correctIndex={1}
+    explanation="Lighthouse's automated checks are a floor, not a ceiling. A perfect score means you've passed the rules axe-core can detect automatically. Issues like confusing reading order, unhelpful error messages, or keyboard traps require human testing with real assistive technologies."
+  />
+  <QuizQuestion
+    question="Which Flutter rendering mode exposes real HTML elements in the DOM?"
+    options={[
+      "CanvasKit — it paints to a canvas and adds ARIA overlays",
+      "HTML renderer — it emits actual HTML and CSS elements",
+      "Both renderers produce identical DOM output",
+      "Neither — Flutter always uses a WebGL surface"
+    ]}
+    correctIndex={1}
+    explanation="The HTML renderer translates Flutter widgets into real HTML and CSS, making the DOM inspectable and naturally readable by screen readers. CanvasKit paints to a <canvas> element and relies on Flutter's semantics overlay for accessibility."
+  />
 </Quiz>

@@ -7,8 +7,176 @@ description: "Set up Chrome DevTools, Lighthouse, and screen readers for web acc
 
 # Your Web Toolkit
 
-*Coming soon — this chapter will cover setting up your web accessibility development environment.*
-
 import WwwBankEmbed from '@site/src/components/WwwBankEmbed/WwwBankEmbed';
 
-<WwwBankEmbed route="/" height={400} />
+Before you write a single line of accessible code, you need to know how to *measure* accessibility. This chapter walks you through every tool you'll reach for during the tutorial — and during the rest of your career as a Flutter web developer.
+
+<WwwBankEmbed route="/login" height={420} />
+
+The embed above is wwwBank — the demo banking app we'll be making accessible together. Open it in a fresh tab alongside this page and use it as a live playground while you read.
+
+---
+
+## Chrome DevTools: Accessibility Panel
+
+Chrome is your primary browser for this tutorial because its DevTools have the most mature accessibility tooling. Let's find the panel.
+
+1. Open Chrome and navigate to the wwwBank embed URL (or any page).
+2. Press **F12** (Windows/Linux) or **Cmd + Option + I** (macOS) to open DevTools.
+3. Click the **Elements** tab, then look for the **Accessibility** sub-panel on the right. If you don't see it, click the `>>` overflow arrow.
+
+The Accessibility panel shows you the **accessibility tree** — a parallel representation of the DOM that screen readers and other assistive technologies actually navigate. Each node has:
+
+- **Role** — what kind of element it is (button, textbox, heading, etc.)
+- **Name** — the human-readable label a screen reader will announce
+- **Description** — optional extra context
+- **Properties** — states like `focused`, `checked`, `expanded`
+
+<div className="wb-callout wb-callout--blue">
+
+**Tip: Inspect any element's accessibility node.** Right-click any element on the page, choose *Inspect*, then switch to the Accessibility panel. Chrome highlights the exact node in the accessibility tree and shows computed properties. This is the fastest way to check whether a button has a meaningful name.
+
+</div>
+
+### What to look for
+
+When you inspect the wwwBank login screen, you want to see:
+
+- The **Sign In** button has an accessible name of `"Sign In"` and a role of `button`.
+- The email and password text fields have roles of `textbox` and are labelled `"Email"` and `"Password"`.
+- No nodes show `"No accessible name"` — that's always a red flag.
+
+We'll revisit the accessibility tree in Chapter 4 (Semantics) once we start placing `Semantics` widgets to control exactly what Flutter exposes.
+
+---
+
+## Lighthouse Accessibility Audits
+
+Lighthouse is Google's automated auditing tool, built into Chrome DevTools. It scores your page across several categories including Performance, SEO, and — critically for us — **Accessibility**.
+
+### Running your first audit
+
+1. Open DevTools and click the **Lighthouse** tab.
+2. Make sure **Accessibility** is checked under *Categories*.
+3. Set the device to **Desktop** (wwwBank targets web, not mobile-first).
+4. Click **Analyze page load**.
+
+Lighthouse runs the page, applies a set of rules based on **axe-core** (the industry-standard accessibility checker), and returns a score from 0 to 100.
+
+<div className="wb-callout wb-callout--amber">
+
+**Warning:** A Lighthouse score of 100 does not mean your app is fully accessible. It means you've passed the *automated* checks — roughly 30-40% of accessibility issues. The rest require human judgment: does the reading order make sense? Are error messages helpful? Can you complete every task with a keyboard alone? Automated tools are a floor, not a ceiling.
+
+</div>
+
+### Reading the report
+
+Below the score, Lighthouse lists individual failures grouped by impact level: Critical, Serious, Moderate, Minor. Each item includes:
+
+- **What failed** — e.g. "Buttons do not have an accessible name"
+- **Which elements** — a direct link to the failing nodes in the DOM
+- **Why it matters** — the WCAG success criterion violated
+
+Keep the Lighthouse score visible as you work through each chapter. By Chapter 8 (Testing), you should be able to pass an audit without any Critical or Serious failures.
+
+---
+
+## Screen Reader Setup
+
+No tool reveals your app's accessibility experience more honestly than a screen reader. You don't need to become an expert user — but you *do* need to know how to turn one on and do a basic walkthrough.
+
+### VoiceOver on macOS
+
+VoiceOver is built into macOS. No installation needed.
+
+- **Turn on:** Press **Cmd + F5** (or go to System Settings → Accessibility → VoiceOver → Enable VoiceOver).
+- **Turn off:** Press **Cmd + F5** again.
+
+Basic navigation with VoiceOver in Chrome:
+
+| Action | Shortcut |
+|---|---|
+| Move to next element | **Tab** |
+| Activate a button or link | **Space** or **Enter** |
+| Start VoiceOver cursor navigation | **Ctrl + Option + Right Arrow** |
+| Read current item | **Ctrl + Option + F3** |
+
+<div className="wb-callout wb-callout--blue">
+
+**Tip:** When testing with VoiceOver, close your eyes for 60 seconds and try to complete a task — log in, check your balance, make a transfer. The friction you feel is exactly what your users with visual impairments experience. It's humbling and immediately useful.
+
+</div>
+
+### NVDA on Windows
+
+NVDA (NonVisual Desktop Access) is the most popular free screen reader for Windows and the one most commonly used in accessibility research.
+
+1. Download NVDA from [nvaccess.org](https://www.nvaccess.org/download/).
+2. Run the installer — it can run as a portable app without admin rights.
+3. Press **Insert + Q** to quit, **Insert + F7** to list all links and headings.
+
+For web testing, always use NVDA with **Firefox** or **Chrome** — not Edge or Internet Explorer.
+
+---
+
+## How Flutter Renders to the Web
+
+Flutter web has two rendering modes, and they behave very differently for accessibility:
+
+### HTML renderer (default for most apps)
+
+Flutter emits real HTML and CSS elements into the DOM. Widgets like `Text` and `ElevatedButton` produce actual `<p>` and `<button>` elements that screen readers and search engines can read natively.
+
+### CanvasKit renderer
+
+Flutter paints everything onto a `<canvas>` element — like a game engine. The visual output is pixel-perfect, but the DOM is nearly empty. Accessibility relies entirely on an **invisible semantics overlay** that Flutter builds on top of the canvas.
+
+<div className="wb-callout wb-callout--amber">
+
+**Warning:** wwwBank uses the HTML renderer by default. If you switch to CanvasKit, every chapter's accessibility work still applies — Flutter's semantics layer is renderer-agnostic — but you'll find it harder to inspect the DOM directly with DevTools. Stick with the HTML renderer during this tutorial.
+
+</div>
+
+### The Flutter semantics tree
+
+Regardless of renderer, Flutter maintains a **semantics tree** in parallel with its widget tree. This is what gets communicated to the OS accessibility APIs (on macOS, to NSAccessibility; on Windows, to UI Automation). When you add `Semantics(label: 'Account balance', child: ...)` in your Dart code, you're writing a node into this tree.
+
+In the HTML renderer, the semantics tree is also reflected as hidden ARIA attributes on DOM elements — which is why Chrome's accessibility panel can read them.
+
+---
+
+## Flutter DevTools for Web
+
+Flutter DevTools work in the browser, not just desktop. When you run wwwBank with `flutter run -d chrome`, a DevTools URL prints in the terminal.
+
+```bash
+flutter run -d chrome
+# Look for: An Observatory debugger and profiler on Chrome ...
+# Or: Flutter DevTools: http://127.0.0.1:9101?...
+```
+
+Open that URL and you get the full DevTools suite including:
+
+- **Widget Inspector** — click any widget in the tree to highlight it in the browser, and see its properties. This is great for tracing *why* a widget isn't showing the semantic label you expected.
+- **Performance** — frame timeline for diagnosing janky animations (important for vestibular accessibility).
+- **Logging** — output from `debugPrint` and `FlutterError`.
+
+<div className="wb-callout wb-callout--blue">
+
+**Tip:** In the Widget Inspector, use the **Select Widget Mode** button (the cursor icon) to click directly in the browser window and jump to that widget in the tree. This is faster than navigating the tree manually when you have a deeply nested layout.
+
+</div>
+
+<div className="wb-callout wb-callout--green">
+
+**You're set up.** You have Chrome DevTools, Lighthouse, a screen reader, and an understanding of how Flutter renders to the web. These are the tools professionals use daily — and you'll use them throughout every chapter of this tutorial.
+
+</div>
+
+---
+
+## What's Next
+
+In **Chapter 1: Hello wwwBank**, we'll tour the app's structure — the `lib/` directory, the `WwwBankScaffold` shell, and how `go_router` connects everything. You'll run the app for the first time and understand the moving parts before we start making them accessible.
+
+→ [Chapter 1: Hello wwwBank](/chapters/hello)
